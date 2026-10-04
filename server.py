@@ -3,6 +3,7 @@ from flask import (
     request,
     jsonify,
     send_from_directory,
+    session,
 )
 
 from flask_sqlalchemy import SQLAlchemy
@@ -68,6 +69,15 @@ PUBLIC_DIR = BASE_DIR / "public"
 
 APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
 IS_PRODUCTION = APP_ORIGIN.startswith("https://") or os.getenv("VERCEL") == "1"
+
+# Flask signs the anonymous browser session. In production, set SECRET_KEY
+# to a long random value shared by all serverless instances.
+SESSION_SECRET = os.getenv("SECRET_KEY") or DATABASE_URL or secrets.token_hex(32)
+app.config["SECRET_KEY"] = SESSION_SECRET
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 
 # =========================================================
@@ -354,17 +364,54 @@ with app.app_context():
 
 
 # =========================================================
+# SECURITY HEADERS
+# =========================================================
+
+@app.after_request
+def add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
+        "img-src 'self' data: blob:; "
+        "connect-src 'self'; "
+        "frame-src 'self'"
+    )
+
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+
+    if IS_PRODUCTION:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    return response
+
+
+# =========================================================
 # ANONYMOUS BROWSER ID
 # =========================================================
 
 def get_user_id():
-    user_id = request.headers.get("X-Dali-User", "").strip()
+    user_id = session.get("dali_user_id")
 
     try:
-        parsed = uuid.UUID(user_id)
+        parsed = uuid.UUID(str(user_id))
         return str(parsed)
-    except (ValueError, AttributeError):
-        return None
+    except (ValueError, AttributeError, TypeError):
+        user_id = str(uuid.uuid4())
+        session["dali_user_id"] = user_id
+        session.permanent = True
+        return user_id
 
 
 # =========================================================
