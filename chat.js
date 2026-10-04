@@ -281,9 +281,10 @@ function addCopyButtons(message, originalText = "") {
     message.appendChild(actions);
 }
 
-async function renderMath(element) {
+async function renderMath(element, attempts = 0) {
     if (typeof MathJax === "undefined") {
-        setTimeout(() => renderMath(element), 200);
+        if (attempts >= 25) return;
+        setTimeout(() => renderMath(element, attempts + 1), 200);
         return;
     }
 
@@ -433,7 +434,7 @@ function showWelcome() {
     messages.innerHTML = `
         <div class="welcome-screen" id="welcomeScreen">
             <div class="welcome-logo">
-                <img src="/logo.png" alt="Dali AI">
+                <img src="./logo.png" alt="Dali AI">
             </div>
 
             <p class="welcome-eyebrow">Your everyday AI assistant</p>
@@ -798,7 +799,7 @@ function getFileIcon(filename) {
 async function sendMessage() {
     if (isSending) return;
 
-    const text = input.value.trim();
+    const text = (input?.value || "").trim();
 
     if (!text && !selectedImage && !selectedFile) {
         return;
