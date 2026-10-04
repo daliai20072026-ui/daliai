@@ -433,7 +433,7 @@ function showWelcome() {
     messages.innerHTML = `
         <div class="welcome-screen" id="welcomeScreen">
             <div class="welcome-logo">
-                <img src="/logo.png" alt="Dali AI">
+                <img src="./logo.png" alt="Dali AI">
             </div>
 
             <p class="welcome-eyebrow">Your everyday AI assistant</p>
