@@ -7,9 +7,7 @@ from flask import (
 
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import requests
 import os
-import csv
 import io
 import json
 
@@ -36,9 +34,6 @@ from g4f.Provider.needs_auth import Gemini
 from datetime import datetime, timezone
 from pathlib import Path
 
-import uuid
-import secrets
-import hmac
 import re
 import base64
 import zipfile
