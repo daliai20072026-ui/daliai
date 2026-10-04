@@ -70,7 +70,7 @@ async function apiRequest(path, options = {}) {
             API_BASE + path,
             {
                 cache: "no-store",
-                credentials: "same-origin",
+                credentials: "omit",
                 ...options,
                 headers,
                 signal: options.signal || controller.signal
