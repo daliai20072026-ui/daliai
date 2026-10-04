@@ -175,17 +175,148 @@ function restoreMath(text, formulas) {
     return text;
 }
 
+function renderMarkdownFallback(text) {
+    const fence = String.fromCharCode(96).repeat(3);
+    const lines = String(text ?? "").replace(/\r\n?/g, "\n").split("\n");
+    const output = [];
+    let inCode = false;
+    let codeLanguage = "";
+    let codeLines = [];
+    let inList = false;
+    let listType = null;
+    let inTable = false;
+
+    const closeList = () => {
+        if (!inList) return;
+        output.push("</" + listType + ">");
+        inList = false;
+        listType = null;
+    };
+
+    const closeTable = () => {
+        if (!inTable) return;
+        output.push("</tbody></table>");
+        inTable = false;
+    };
+
+    const inline = (value) => {
+        let html = escapeHtml(value);
+        html = html.replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>");
+        html = html.replace(/(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)/g, "<em>$1</em>");
+        html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        return html;
+    };
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (trimmed.startsWith(fence)) {
+            closeList();
+            closeTable();
+
+            if (!inCode) {
+                inCode = true;
+                codeLanguage = trimmed.slice(3).trim();
+                codeLines = [];
+            } else {
+                const className = codeLanguage
+                    ? ' class="language-' + escapeHtml(codeLanguage) + '"'
+                    : "";
+                output.push("<pre><code" + className + ">" + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+                inCode = false;
+                codeLanguage = "";
+                codeLines = [];
+            }
+            continue;
+        }
+
+        if (inCode) {
+            codeLines.push(line);
+            continue;
+        }
+
+        if (!trimmed) {
+            closeList();
+            continue;
+        }
+
+        const heading = trimmed.match(/^(#{1,6})\\s+(.+)$/);
+        if (heading) {
+            closeList();
+            closeTable();
+            const level = heading[1].length;
+            output.push("<h" + level + ">" + inline(heading[2]) + "</h" + level + ">");
+            continue;
+        }
+
+        const quote = trimmed.match(/^>\\s?(.*)$/);
+        if (quote) {
+            closeList();
+            closeTable();
+            output.push("<blockquote>" + inline(quote[1]) + "</blockquote>");
+            continue;
+        }
+
+        const tableRow = trimmed.startsWith("|") && trimmed.endsWith("|");
+        if (tableRow) {
+            closeList();
+            const cells = trimmed.slice(1, -1).split("|").map(cell => cell.trim());
+
+            if (cells.every(cell => /^:?-{3,}:?$/.test(cell))) {
+                continue;
+            }
+
+            if (!inTable) {
+                output.push("<table><thead><tr>" + cells.map(cell => "<th>" + inline(cell) + "</th>").join("") + "</tr></thead><tbody>");
+                inTable = true;
+            } else {
+                output.push("<tr>" + cells.map(cell => "<td>" + inline(cell) + "</td>").join("") + "</tr>");
+            }
+            continue;
+        }
+
+        closeTable();
+
+        const listMatch = trimmed.match(/^([-*+] |\\d+[.] )(.*)$/);
+        if (listMatch) {
+            const nextType = /^\\d+[.] /.test(listMatch[1]) ? "ol" : "ul";
+            if (!inList || listType !== nextType) {
+                closeList();
+                listType = nextType;
+                inList = true;
+                output.push("<" + listType + ">");
+            }
+            output.push("<li>" + inline(listMatch[2]) + "</li>");
+            continue;
+        }
+
+        closeList();
+        output.push("<p>" + inline(trimmed) + "</p>");
+    }
+
+    closeList();
+    closeTable();
+
+    if (inCode) {
+        output.push("<pre><code>" + escapeHtml(codeLines.join("\n")) + "</code></pre>");
+    }
+
+    return output.join("");
+}
+
 function renderMarkdown(text) {
     text = text ?? "";
+    const protectedMath = protectMath(text);
 
     if (
         typeof marked === "undefined" ||
         typeof DOMPurify === "undefined"
     ) {
-        return escapeHtml(text).replace(/\n/g, "<br>");
+        return restoreMath(
+            renderMarkdownFallback(protectedMath.text),
+            protectedMath.formulas
+        );
     }
-
-    const protectedMath = protectMath(text);
 
     const rawHtml = marked.parse(
         protectedMath.text,
