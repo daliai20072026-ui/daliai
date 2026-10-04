@@ -4643,3 +4643,81 @@ body {
     justify-content: center;
     flex: 0 0 auto;
 }
+
+
+/* Local UI icons: do not depend on an external icon font. */
+.ui-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35em;
+    min-width: 1.35em;
+    line-height: 1;
+    font-family: "Segoe UI Symbol", "Arial Unicode MS", sans-serif;
+    font-size: 1.05em;
+    font-weight: 600;
+    font-style: normal;
+    text-align: center;
+    flex: 0 0 auto;
+}
+
+.nav-icon {
+    font-size: 1.15em;
+}
+
+.prompt-icon {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    font-size: 21px;
+}
+
+.file-option-icon {
+    width: 30px;
+    min-width: 30px;
+    font-size: 18px;
+}
+
+.guest-avatar.ui-icon {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface-hover);
+    color: var(--muted);
+    font-size: 18px;
+}
+
+.clear-chat .ui-icon {
+    margin-right: 4px;
+}
+
+.attach-btn .ui-icon,
+.remove-image .ui-icon,
+.voice-btn .ui-icon {
+    font-size: 18px;
+}
+
+@media (max-width: 700px) {
+    .chat-header {
+        padding: 0 14px;
+    }
+
+    .messages {
+        padding: 20px 14px;
+    }
+
+    .input-area {
+        padding: 10px 14px 14px;
+    }
+
+    .header-actions {
+        gap: 6px;
+    }
+
+    .mode-badge {
+        display: none;
+    }
+}
