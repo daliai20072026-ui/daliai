@@ -54,7 +54,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-1.7"
+BACKEND_VERSION = "dali-g4f-gemini-1.8"
 
 app = Flask(__name__)
 
@@ -958,13 +958,7 @@ def chat():
         uploaded_filename = ""
 
         if image_file and image_file.filename:
-            image_mimetype = (image_file.mimetype or "").lower()
-
-            if image_mimetype not in ALLOWED_IMAGE_TYPES:
-                return jsonify({
-                    "error": "Unsupported image format. Use JPG, PNG, WEBP or GIF."
-                }), 400
-
+            declared_mimetype = (image_file.mimetype or "").lower()
             image_bytes = image_file.read()
 
             if len(image_bytes) > MAX_IMAGE_SIZE:
@@ -976,11 +970,20 @@ def chat():
                 return jsonify({"error": "The selected image is empty."}), 400
 
             detected_mimetype = detect_image_type(image_bytes)
-            if detected_mimetype != image_mimetype:
+            if detected_mimetype not in ALLOWED_IMAGE_TYPES:
+                return jsonify({
+                    "error": "Unsupported or invalid image. Use JPG, PNG, WEBP or GIF."
+                }), 400
+
+            # Browsers can send an empty or non-standard MIME type for valid images.
+            # Trust the file signature first, while still rejecting a declared type
+            # that explicitly conflicts with the detected bytes.
+            if declared_mimetype and declared_mimetype != detected_mimetype:
                 return jsonify({
                     "error": "The image file content does not match its declared type."
                 }), 400
 
+            image_mimetype = detected_mimetype
             uploaded_filename = sanitize_filename(image_file.filename)
             base64_encoded = base64.b64encode(image_bytes).decode("utf-8")
             image_data_uri = f"data:{image_mimetype};base64,{base64_encoded}"
