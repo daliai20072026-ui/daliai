@@ -116,7 +116,7 @@ limiter = Limiter(
 # =========================================================
 
 # Empty model lets the current g4f client choose its default provider/model.
-G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.6-flash").strip()
+G4F_MODEL = os.getenv("G4F_MODEL", "gemini-2.5-flash").strip()
 
 # Use Google Gemini directly through g4f.
 # Note: the current g4f Gemini provider needs a Google Gemini session/cookies.
