@@ -352,7 +352,7 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
         chip.className = "message-file-chip";
 
         const icon = document.createElement("span");
-        icon.className = "material-symbols-rounded message-file-icon";
+        icon.className = "ui-icon message-file-icon";
         icon.setAttribute("aria-hidden", "true");
         icon.textContent = getFileIcon(displayedFileName);
 
@@ -448,7 +448,7 @@ function showWelcome() {
 
             <div class="quick-prompts">
                 <button type="button" class="prompt-card" data-prompt="Explain this topic in a simple way.">
-                    <span class="material-symbols-rounded prompt-icon" aria-hidden="true">school</span>
+                    <span class="ui-icon prompt-icon" aria-hidden="true">✦</span>
                     <span>
                         <strong>Study</strong>
                         <small>Explain something simply</small>
@@ -456,7 +456,7 @@ function showWelcome() {
                 </button>
 
                 <button type="button" class="prompt-card" data-prompt="Help me fix this code and explain the error.">
-                    <span class="material-symbols-rounded prompt-icon" aria-hidden="true">code</span>
+                    <span class="ui-icon prompt-icon" aria-hidden="true">&lt;/&gt;</span>
                     <span>
                         <strong>Coding</strong>
                         <small>Fix and explain code</small>
@@ -464,7 +464,7 @@ function showWelcome() {
                 </button>
 
                 <button type="button" class="prompt-card" data-prompt="Solve this math exercise step by step.">
-                    <span class="material-symbols-rounded prompt-icon" aria-hidden="true">calculate</span>
+                    <span class="ui-icon prompt-icon" aria-hidden="true">∑</span>
                     <span>
                         <strong>Math</strong>
                         <small>Step-by-step solutions</small>
@@ -472,7 +472,7 @@ function showWelcome() {
                 </button>
 
                 <button type="button" class="prompt-card" data-prompt="Write a clear and professional version of this text.">
-                    <span class="material-symbols-rounded prompt-icon" aria-hidden="true">edit_note</span>
+                    <span class="ui-icon prompt-icon" aria-hidden="true">✎</span>
                     <span>
                         <strong>Writing</strong>
                         <small>Write or improve text</small>
@@ -793,7 +793,7 @@ function getFileIcon(filename) {
         pptx: "▥"
     };
 
-    return icons[extension] || "attach_file";
+    return icons[extension] || "📎";
 }
 
 async function sendMessage() {
