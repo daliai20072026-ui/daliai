@@ -63,7 +63,18 @@ function getDaliUserId() {
             return storedUserId;
         }
 
-        const newUserId = crypto.randomUUID();
+        const newUserId = (
+            typeof crypto !== "undefined" &&
+            typeof crypto.randomUUID === "function"
+        )
+            ? crypto.randomUUID()
+            : (
+                "dali-" +
+                Date.now().toString(36) +
+                "-" +
+                Math.random().toString(36).slice(2, 12)
+            );
+
         localStorage.setItem(key, newUserId);
         return newUserId;
     } catch (error) {
@@ -71,7 +82,12 @@ function getDaliUserId() {
     }
 
     if (!fallbackUserId) {
-        fallbackUserId = crypto.randomUUID();
+        fallbackUserId = (
+            typeof crypto !== "undefined" &&
+            typeof crypto.randomUUID === "function"
+        )
+            ? crypto.randomUUID()
+            : "dali-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
     }
 
     return fallbackUserId;
