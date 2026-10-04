@@ -201,9 +201,9 @@ function renderMarkdownFallback(text) {
 
     const inline = (value) => {
         let html = escapeHtml(value);
-        html = html.replace(/\\*\\*([^*]+)\\*\\*/g, "<strong>$1</strong>");
-        html = html.replace(/(?<!\\*)\\*([^*\\n]+)\\*(?!\\*)/g, "<em>$1</em>");
-        html = html.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
         return html;
     };
 
@@ -240,7 +240,7 @@ function renderMarkdownFallback(text) {
             continue;
         }
 
-        const heading = trimmed.match(/^(#{1,6})\\s+(.+)$/);
+        const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
         if (heading) {
             closeList();
             closeTable();
@@ -249,7 +249,7 @@ function renderMarkdownFallback(text) {
             continue;
         }
 
-        const quote = trimmed.match(/^>\\s?(.*)$/);
+        const quote = trimmed.match(/^>\s?(.*)$/);
         if (quote) {
             closeList();
             closeTable();
@@ -277,9 +277,9 @@ function renderMarkdownFallback(text) {
 
         closeTable();
 
-        const listMatch = trimmed.match(/^([-*+] |\\d+[.] )(.*)$/);
+        const listMatch = trimmed.match(/^([-*+] |\d+[.] )(.*)$/);
         if (listMatch) {
-            const nextType = /^\\d+[.] /.test(listMatch[1]) ? "ol" : "ul";
+            const nextType = /^\d+[.] /.test(listMatch[1]) ? "ol" : "ul";
             if (!inList || listType !== nextType) {
                 closeList();
                 listType = nextType;
