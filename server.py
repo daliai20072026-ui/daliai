@@ -70,15 +70,6 @@ PUBLIC_DIR = BASE_DIR / "public"
 APP_ORIGIN = os.getenv("APP_ORIGIN", "").rstrip("/")
 IS_PRODUCTION = APP_ORIGIN.startswith("https://") or os.getenv("VERCEL") == "1"
 
-# Flask signs the anonymous browser session. In production, set SECRET_KEY
-# to a long random value shared by all serverless instances.
-SESSION_SECRET = os.getenv("SECRET_KEY") or DATABASE_URL or secrets.token_hex(32)
-app.config["SECRET_KEY"] = SESSION_SECRET
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
-
 
 # =========================================================
 # REQUEST / UPLOAD SETTINGS
@@ -103,6 +94,22 @@ else:
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+
+# Flask signs the anonymous browser session. In production, set SECRET_KEY
+# to a long random value shared by all serverless instances. Keep the fallback
+# only as a development/last-resort value; Vercel should define SECRET_KEY.
+SESSION_SECRET = os.getenv("SECRET_KEY")
+if not SESSION_SECRET:
+    if IS_PRODUCTION:
+        app.logger.warning("SECRET_KEY is not configured; anonymous sessions may reset between instances.")
+    SESSION_SECRET = DATABASE_URL or secrets.token_hex(32)
+
+app.config["SECRET_KEY"] = SESSION_SECRET
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 db = SQLAlchemy(app)
 
