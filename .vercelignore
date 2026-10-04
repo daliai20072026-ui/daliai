@@ -1,0 +1,8 @@
+# Keep development and repository metadata out of Vercel deployments.
+.github/
+tests/
+FIXES_APPLIED.md
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
