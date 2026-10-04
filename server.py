@@ -881,6 +881,12 @@ def get_chats():
 @limiter.limit("60/minute")
 def get_chat(chat_id):
     user_id = get_user_id()
+
+    try:
+        chat_id = parse_chat_id(chat_id)
+    except ValueError as validation_error:
+        return jsonify({"error": str(validation_error)}), 400
+
     chat = Chat.query.filter_by(id=chat_id, user_id=user_id).first()
 
     if not chat:
@@ -912,6 +918,12 @@ def get_chat(chat_id):
 @limiter.limit("20/minute")
 def delete_chat(chat_id):
     user_id = get_user_id()
+
+    try:
+        chat_id = parse_chat_id(chat_id)
+    except ValueError as validation_error:
+        return jsonify({"error": str(validation_error)}), 400
+
     chat = Chat.query.filter_by(id=chat_id, user_id=user_id).first()
 
     if not chat:
