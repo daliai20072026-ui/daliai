@@ -1,8 +1,5 @@
 Flask
-Flask-SQLAlchemy
 Flask-Limiter
-email-validator
-psycopg2-binary
 g4f
 requests
 pypdf
