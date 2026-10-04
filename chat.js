@@ -281,9 +281,10 @@ function addCopyButtons(message, originalText = "") {
     message.appendChild(actions);
 }
 
-async function renderMath(element) {
+async function renderMath(element, attempts = 0) {
     if (typeof MathJax === "undefined") {
-        setTimeout(() => renderMath(element), 200);
+        if (attempts >= 25) return;
+        setTimeout(() => renderMath(element, attempts + 1), 200);
         return;
     }
 
@@ -798,7 +799,7 @@ function getFileIcon(filename) {
 async function sendMessage() {
     if (isSending) return;
 
-    const text = input.value.trim();
+    const text = (input?.value || "").trim();
 
     if (!text && !selectedImage && !selectedFile) {
         return;
