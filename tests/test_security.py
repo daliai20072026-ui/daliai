@@ -21,8 +21,11 @@ class SecurityRegressionTests(unittest.TestCase):
         self.assertIn("frame-ancestors 'self'", response.headers["Content-Security-Policy"])
 
     def test_api_responses_are_not_cached(self):
-        response = self.client.get("/health")
-        self.assertEqual(response.status_code, 200)
+        response = self.client.post(
+            "/api/chat",
+            json={"message": ""},
+        )
+        self.assertEqual(response.status_code, 400)
         self.assertEqual(response.headers["Cache-Control"], "no-store")
 
     def test_stateless_history_parser_accepts_only_safe_roles(self):
