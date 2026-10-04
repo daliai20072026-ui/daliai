@@ -96,7 +96,10 @@ function getDaliUserId() {
 
 async function apiRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
-    headers.set("X-Dali-User", getDaliUserId());
+
+    // Authentication/session identity is now handled by the server-side
+    // HttpOnly Flask session cookie. Never trust a client-supplied user ID.
+    headers.delete("X-Dali-User");
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
