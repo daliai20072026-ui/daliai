@@ -23,6 +23,7 @@ const statusText = document.getElementById("statusText");
 let currentChatId = null;
 let selectedImage = null;
 let selectedImageUrl = null;
+let selectedImageObjectUrl = null;
 let selectedFile = null;
 let isSending = false;
 
@@ -727,17 +728,26 @@ function selectFile(file) {
         reader.onload = () => {
             selectedImageUrl = reader.result;
 
+            if (selectedImageObjectUrl) {
+                URL.revokeObjectURL(selectedImageObjectUrl);
+            }
+            selectedImageObjectUrl = URL.createObjectURL(file);
+
             if (previewImage) {
-                previewImage.src = selectedImageUrl;
+                previewImage.onload = null;
+                previewImage.onerror = () => {
+                    previewImage.removeAttribute("src");
+                    previewImage.style.display = "none";
+
+                    const previewStatus = imagePreview?.querySelector(".image-preview-status");
+                    if (previewStatus) {
+                        previewStatus.textContent = "Preview unavailable — the image will still be sent.";
+                    }
+                };
+
+                previewImage.src = selectedImageObjectUrl;
                 previewImage.style.display = "block";
                 previewImage.alt = file.name || "Selected image";
-                previewImage.onerror = () => {
-                    removeSelectedImage();
-                    addMessage(
-                        "The selected image could not be displayed in your browser.",
-                        "ai-message"
-                    );
-                };
             }
 
             if (filePreviewInfo) {
@@ -746,16 +756,24 @@ function selectFile(file) {
 
             if (imagePreview) {
                 imagePreview.style.display = "flex";
+
+                let previewStatus = imagePreview.querySelector(".image-preview-status");
+                if (!previewStatus) {
+                    previewStatus = document.createElement("span");
+                    previewStatus.className = "image-preview-status";
+                    imagePreview.appendChild(previewStatus);
+                }
+                previewStatus.textContent = "";
             }
         };
 
         reader.onerror = () => {
             removeSelectedImage();
 
-            addMessage(
-                "Could not read the selected image.",
-                "ai-message"
-            );
+            const previewStatus = imagePreview?.querySelector(".image-preview-status");
+            if (previewStatus) {
+                previewStatus.textContent = "Could not read the selected image.";
+            }
         };
 
         reader.readAsDataURL(file);
