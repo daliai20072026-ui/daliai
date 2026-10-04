@@ -683,6 +683,222 @@ function clearChat() {
     startNewChat();
 }
 
+function removeSelectedImage() {
+    selectedImage = null;
+    selectedImageUrl = null;
+    selectedFile = null;
+
+    if (selectedImageObjectUrl) {
+        URL.revokeObjectURL(selectedImageObjectUrl);
+        selectedImageObjectUrl = null;
+    }
+
+    if (previewImage) {
+        previewImage.onload = null;
+        previewImage.onerror = null;
+        previewImage.removeAttribute("src");
+        previewImage.style.display = "none";
+    }
+
+    if (filePreviewInfo) {
+        filePreviewInfo.style.display = "none";
+    }
+
+    if (filePreviewName) {
+        filePreviewName.textContent = "";
+    }
+
+    if (filePreviewIcon) {
+        filePreviewIcon.textContent = "📎";
+    }
+
+    if (imagePreview) {
+        imagePreview.style.display = "none";
+
+        const previewStatus = imagePreview.querySelector(".image-preview-status");
+        if (previewStatus) {
+            previewStatus.textContent = "";
+        }
+    }
+
+    if (imageInput) {
+        imageInput.value = "";
+    }
+}
+
+function selectFile(file) {
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+        addMessage(
+            "This file is too large. Maximum size is 10 MB.",
+            "ai-message"
+        );
+        return;
+    }
+
+    removeSelectedImage();
+
+    const extension = String(file.name || "")
+        .split(".")
+        .pop()
+        .toLowerCase();
+
+    const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+    const isImage =
+        ALLOWED_IMAGE_TYPES.has(file.type) ||
+        imageExtensions.has(extension);
+
+    const readableExtensions = new Set([
+        "txt", "md", "markdown", "csv", "tsv", "json", "xml",
+        "html", "htm", "css", "js", "jsx", "ts", "tsx",
+        "py", "pyw", "php", "java", "c", "h", "cpp", "cxx",
+        "hpp", "cs", "sql", "sh", "bat", "ps1", "jsonl",
+        "yaml", "yml", "ini", "cfg", "conf", "log", "tex",
+        "scss", "sass", "less", "vue", "svelte", "asm",
+        "pdf", "docx", "xlsx", "xlsm", "pptx"
+    ]);
+
+    if (!isImage && !readableExtensions.has(extension)) {
+        addMessage(
+            "This file type is not supported for reading by Dali AI.",
+            "ai-message"
+        );
+        return;
+    }
+
+    if (isImage) {
+        if (file.size > MAX_IMAGE_SIZE) {
+            addMessage(
+                "Image is too large. Maximum size is 5 MB.",
+                "ai-message"
+            );
+            return;
+        }
+
+        selectedImage = file;
+
+        if (previewImage) {
+            previewImage.onload = null;
+            previewImage.onerror = () => {
+                previewImage.removeAttribute("src");
+                previewImage.style.display = "none";
+
+                const previewStatus = imagePreview?.querySelector(".image-preview-status");
+                if (previewStatus) {
+                    previewStatus.textContent =
+                        "Preview unavailable — the image will still be sent.";
+                }
+            };
+
+            selectedImageObjectUrl = URL.createObjectURL(file);
+            previewImage.src = selectedImageObjectUrl;
+            previewImage.style.display = "block";
+            previewImage.alt = file.name || "Selected image";
+        }
+
+        if (filePreviewInfo) {
+            filePreviewInfo.style.display = "none";
+        }
+
+        if (imagePreview) {
+            imagePreview.style.display = "flex";
+
+            let previewStatus =
+                imagePreview.querySelector(".image-preview-status");
+
+            if (!previewStatus) {
+                previewStatus = document.createElement("span");
+                previewStatus.className = "image-preview-status";
+                imagePreview.appendChild(previewStatus);
+            }
+
+            previewStatus.textContent = "";
+        }
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            selectedImageUrl = reader.result;
+        };
+
+        reader.onerror = () => {
+            const previewStatus =
+                imagePreview?.querySelector(".image-preview-status");
+
+            if (previewStatus) {
+                previewStatus.textContent =
+                    "Could not prepare the image, but you can still try sending it.";
+            }
+        };
+
+        reader.readAsDataURL(file);
+        return;
+    }
+
+    selectedFile = file;
+
+    if (previewImage) {
+        previewImage.onload = null;
+        previewImage.onerror = null;
+        previewImage.removeAttribute("src");
+        previewImage.style.display = "none";
+    }
+
+    if (filePreviewInfo) {
+        filePreviewInfo.style.display = "flex";
+    }
+
+    if (filePreviewName) {
+        filePreviewName.textContent = file.name || "Selected file";
+    }
+
+    if (filePreviewIcon) {
+        filePreviewIcon.textContent = getFileIcon(file.name);
+    }
+
+    if (imagePreview) {
+        imagePreview.style.display = "flex";
+
+        let previewStatus =
+            imagePreview.querySelector(".image-preview-status");
+
+        if (!previewStatus) {
+            previewStatus = document.createElement("span");
+            previewStatus.className = "image-preview-status";
+            imagePreview.appendChild(previewStatus);
+        }
+
+        previewStatus.textContent = "";
+    }
+}
+
+function getFileIcon(filename) {
+    const extension = String(filename || "")
+        .split(".")
+        .pop()
+        .toLowerCase();
+
+    const icons = {
+        pdf: "▣",
+        docx: "▤",
+        txt: "▤",
+        md: "▤",
+        csv: "▦",
+        xlsx: "▦",
+        xlsm: "▦",
+        json: "{}",
+        py: "</>",
+        js: "</>",
+        html: "</>",
+        css: "</>",
+        sql: "▦",
+        pptx: "▥"
+    };
+
+    return icons[extension] || "📎";
+}
+
 async function sendMessage() {
     if (isSending) return;
 
