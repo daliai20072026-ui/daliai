@@ -642,7 +642,7 @@ function removeSelectedImage() {
     }
 
     if (filePreviewIcon) {
-        filePreviewIcon.textContent = "attach_file";
+        filePreviewIcon.textContent = "📎";
     }
 
     if (imagePreview) {
@@ -777,20 +777,20 @@ function getFileIcon(filename) {
         .toLowerCase();
 
     const icons = {
-        pdf: "picture_as_pdf",
-        docx: "description",
-        txt: "description",
-        md: "description",
-        csv: "table_chart",
-        xlsx: "table_chart",
-        xlsm: "table_chart",
-        json: "data_object",
-        py: "code",
-        js: "code",
-        html: "language",
-        css: "code",
-        sql: "database",
-        pptx: "slideshow"
+        pdf: "▣",
+        docx: "▤",
+        txt: "▤",
+        md: "▤",
+        csv: "▦",
+        xlsx: "▦",
+        xlsm: "▦",
+        json: "{}",
+        py: "</>",
+        js: "</>",
+        html: "</>",
+        css: "</>",
+        sql: "▦",
+        pptx: "▥"
     };
 
     return icons[extension] || "attach_file";
