@@ -4721,3 +4721,14 @@ body {
         display: none;
     }
 }
+
+
+.image-preview-status {
+    display: block;
+    margin: 4px 6px 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.image-preview-status:empty { display: none; }
