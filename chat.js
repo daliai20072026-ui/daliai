@@ -20,12 +20,17 @@ const removeImageBtn = document.getElementById("removeImageBtn");
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
 
-let currentChatId = null;
 let selectedImage = null;
 let selectedImageUrl = null;
 let selectedImageObjectUrl = null;
 let selectedFile = null;
 let isSending = false;
+
+// Conversation context exists only in this tab's memory.
+// It is never written to localStorage, cookies, or the server database.
+const conversationHistory = [];
+const MAX_CONTEXT_MESSAGES = 40;
+const MAX_CONTEXT_CHARS = 50000;
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -52,54 +57,8 @@ async function readApiResponse(response) {
     }
 }
 
-let fallbackUserId = null;
-
-function getDaliUserId() {
-    const key = "dali_ai_user_id";
-
-    try {
-        const storedUserId = localStorage.getItem(key);
-
-        if (storedUserId) {
-            return storedUserId;
-        }
-
-        const newUserId = (
-            typeof crypto !== "undefined" &&
-            typeof crypto.randomUUID === "function"
-        )
-            ? crypto.randomUUID()
-            : (
-                "dali-" +
-                Date.now().toString(36) +
-                "-" +
-                Math.random().toString(36).slice(2, 12)
-            );
-
-        localStorage.setItem(key, newUserId);
-        return newUserId;
-    } catch (error) {
-        console.warn("Local storage unavailable:", error);
-    }
-
-    if (!fallbackUserId) {
-        fallbackUserId = (
-            typeof crypto !== "undefined" &&
-            typeof crypto.randomUUID === "function"
-        )
-            ? crypto.randomUUID()
-            : "dali-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
-    }
-
-    return fallbackUserId;
-}
-
 async function apiRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
-
-    // Authentication/session identity is now handled by the server-side
-    // HttpOnly Flask session cookie. Never trust a client-supplied user ID.
-    headers.delete("X-Dali-User");
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -647,321 +606,81 @@ function showWelcome() {
     });
 }
 
-async function loadChats() {
+function updateHistoryNotice() {
     if (!history) return;
 
-    try {
-        const data = await apiRequest("/api/chats");
+    history.innerHTML = "";
 
-        history.innerHTML = "";
-
-        if (!data.chats?.length) {
-            const empty = document.createElement("div");
-            empty.className = "history-item";
-            empty.textContent = "No chats yet";
-            history.appendChild(empty);
-            return;
-        }
-
-        data.chats.forEach(createHistoryItem);
-    } catch (error) {
-        console.error("Load chats error:", error);
-        history.innerHTML = "";
-
-        const item = document.createElement("div");
-        item.className = "history-item";
-        item.textContent = "History unavailable";
-        history.appendChild(item);
-    }
-}
-
-function createHistoryItem(chat) {
     const item = document.createElement("div");
-    item.className = "history-item";
-
-    if (String(chat.id) === String(currentChatId)) {
-        item.classList.add("active");
-    }
-
-    item.textContent = chat.title || "New Chat";
-
-    item.addEventListener("click", () => {
-        loadChat(chat.id);
-    });
-
+    item.className = "history-item history-disabled";
+    item.textContent = "History off — chats are not saved.";
     history.appendChild(item);
 }
 
-async function loadChat(chatId) {
-    if (!chatId) {
-        startNewChat();
-        return;
-    }
+function getConversationHistoryForRequest() {
+    const selected = [];
+    let total = 0;
 
-    try {
-        const data = await apiRequest(
-            "/api/chats/" + encodeURIComponent(chatId)
-        );
+    for (let i = conversationHistory.length - 1; i >= 0 && selected.length < MAX_CONTEXT_MESSAGES; i--) {
+        const item = conversationHistory[i];
 
-        currentChatId = data.id || chatId;
-        messages.innerHTML = "";
-        updateMode("general");
-
-        if (!data.messages?.length) {
-            showWelcome();
-        } else {
-            data.messages.forEach(message => {
-                const text = message.text ?? message.content ?? "";
-                addMessage(
-                    text,
-                    message.role === "user"
-                        ? "user-message"
-                        : "ai-message"
-                );
-            });
+        if (!item || !["user", "assistant"].includes(item.role)) {
+            continue;
         }
 
-        await loadChats();
-    } catch (error) {
-        console.error("Load chat error:", error);
+        const content = String(item.content || "");
+        const remaining = MAX_CONTEXT_CHARS - total;
 
-        // The chat may have disappeared on a serverless instance.
-        // Clear the stale ID instead of leaving the UI stuck on a dead chat.
-        currentChatId = null;
-        await loadChats();
+        if (remaining <= 0) {
+            break;
+        }
 
-        addMessage(
-            "This chat is no longer available. A new chat will be created when you send your next message.",
-            "ai-message"
-        );
+        const clipped = content.slice(0, remaining);
+        selected.unshift({
+            role: item.role,
+            content: clipped
+        });
+
+        total += clipped.length;
     }
+
+    return selected;
+}
+
+function rememberTurn(userContent, assistantContent) {
+    if (userContent) {
+        conversationHistory.push({
+            role: "user",
+            content: userContent
+        });
+    }
+
+    if (assistantContent) {
+        conversationHistory.push({
+            role: "assistant",
+            content: assistantContent
+        });
+    }
+
+    while (conversationHistory.length > MAX_CONTEXT_MESSAGES) {
+        conversationHistory.shift();
+    }
+}
+
+function loadChats() {
+    updateHistoryNotice();
 }
 
 function startNewChat() {
-    currentChatId = null;
+    conversationHistory.length = 0;
     removeSelectedImage();
     showWelcome();
-    loadChats();
+    updateHistoryNotice();
     input?.focus();
 }
 
-async function deleteCurrentChat() {
-    if (!currentChatId) {
-        startNewChat();
-        return;
-    }
-
-    try {
-        await apiRequest(
-            "/api/chats/" + encodeURIComponent(currentChatId),
-            { method: "DELETE" }
-        );
-
-        currentChatId = null;
-        showWelcome();
-        await loadChats();
-    } catch (error) {
-        console.error("Delete chat error:", error);
-
-        addMessage(
-            "Could not clear this chat: " + error.message,
-            "ai-message"
-        );
-    }
-}
-
 function clearChat() {
-    deleteCurrentChat();
-}
-
-function removeSelectedImage() {
-    selectedImage = null;
-    selectedImageUrl = null;
-    selectedFile = null;
-
-    if (previewImage) {
-        previewImage.src = "about:blank";
-        previewImage.style.display = "none";
-    }
-
-    if (filePreviewInfo) {
-        filePreviewInfo.style.display = "none";
-    }
-
-    if (filePreviewName) {
-        filePreviewName.textContent = "";
-    }
-
-    if (filePreviewIcon) {
-        filePreviewIcon.textContent = "📎";
-    }
-
-    if (imagePreview) {
-        imagePreview.style.display = "none";
-    }
-
-    if (imageInput) {
-        imageInput.value = "";
-    }
-}
-
-function selectFile(file) {
-    if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-        addMessage(
-            "This file is too large. Maximum size is 10 MB.",
-            "ai-message"
-        );
-        return;
-    }
-
-    removeSelectedImage();
-
-    const extension = String(file.name || "")
-        .split(".")
-        .pop()
-        .toLowerCase();
-
-    const imageExtensions = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
-    const isImage =
-        ALLOWED_IMAGE_TYPES.has(file.type) ||
-        imageExtensions.has(extension);
-
-    const readableExtensions = new Set([
-        "txt", "md", "markdown", "csv", "tsv", "json", "xml",
-        "html", "htm", "css", "js", "jsx", "ts", "tsx",
-        "py", "pyw", "php", "java", "c", "h", "cpp", "cxx",
-        "hpp", "cs", "sql", "sh", "bat", "ps1", "jsonl",
-        "yaml", "yml", "ini", "cfg", "conf", "log", "tex",
-        "scss", "sass", "less", "vue", "svelte", "asm",
-        "pdf", "docx", "xlsx", "xlsm", "pptx"
-    ]);
-
-    if (!isImage && !readableExtensions.has(extension)) {
-        addMessage(
-            "This file type is not supported for reading by Dali AI.",
-            "ai-message"
-        );
-        return;
-    }
-
-    if (isImage) {
-        if (file.size > MAX_IMAGE_SIZE) {
-            addMessage(
-                "Image is too large. Maximum size is 5 MB.",
-                "ai-message"
-            );
-            return;
-        }
-
-        selectedImage = file;
-
-        const reader = new FileReader();
-
-        reader.onload = () => {
-            selectedImageUrl = reader.result;
-
-            if (selectedImageObjectUrl) {
-                URL.revokeObjectURL(selectedImageObjectUrl);
-            }
-            selectedImageObjectUrl = URL.createObjectURL(file);
-
-            if (previewImage) {
-                previewImage.onload = null;
-                previewImage.onerror = () => {
-                    previewImage.removeAttribute("src");
-                    previewImage.style.display = "none";
-
-                    const previewStatus = imagePreview?.querySelector(".image-preview-status");
-                    if (previewStatus) {
-                        previewStatus.textContent = "Preview unavailable — the image will still be sent.";
-                    }
-                };
-
-                previewImage.src = selectedImageObjectUrl;
-                previewImage.style.display = "block";
-                previewImage.alt = file.name || "Selected image";
-            }
-
-            if (filePreviewInfo) {
-                filePreviewInfo.style.display = "none";
-            }
-
-            if (imagePreview) {
-                imagePreview.style.display = "flex";
-
-                let previewStatus = imagePreview.querySelector(".image-preview-status");
-                if (!previewStatus) {
-                    previewStatus = document.createElement("span");
-                    previewStatus.className = "image-preview-status";
-                    imagePreview.appendChild(previewStatus);
-                }
-                previewStatus.textContent = "";
-            }
-        };
-
-        reader.onerror = () => {
-            removeSelectedImage();
-
-            const previewStatus = imagePreview?.querySelector(".image-preview-status");
-            if (previewStatus) {
-                previewStatus.textContent = "Could not read the selected image.";
-            }
-        };
-
-        reader.readAsDataURL(file);
-        return;
-    }
-
-    selectedFile = file;
-
-    if (previewImage) {
-        previewImage.src = "about:blank";
-        previewImage.style.display = "none";
-    }
-
-    if (filePreviewInfo) {
-        filePreviewInfo.style.display = "flex";
-    }
-
-    if (filePreviewName) {
-        filePreviewName.textContent = file.name;
-    }
-
-    if (filePreviewIcon) {
-        filePreviewIcon.textContent = getFileIcon(file.name);
-    }
-
-    if (imagePreview) {
-        imagePreview.style.display = "flex";
-    }
-}
-
-function getFileIcon(filename) {
-    const extension = String(filename || "")
-        .split(".")
-        .pop()
-        .toLowerCase();
-
-    const icons = {
-        pdf: "▣",
-        docx: "▤",
-        txt: "▤",
-        md: "▤",
-        csv: "▦",
-        xlsx: "▦",
-        xlsm: "▦",
-        json: "{}",
-        py: "</>",
-        js: "</>",
-        html: "</>",
-        css: "</>",
-        sql: "▦",
-        pptx: "▥"
-    };
-
-    return icons[extension] || "📎";
+    startNewChat();
 }
 
 async function sendMessage() {
@@ -980,6 +699,7 @@ async function sendMessage() {
     const fileFile = selectedFile;
     const imageUrl = selectedImageUrl;
     const attachmentName = imageFile?.name || fileFile?.name || null;
+    const contextBeforeTurn = getConversationHistoryForRequest();
 
     addMessage(
         sendText || "Attachment",
@@ -1009,10 +729,7 @@ async function sendMessage() {
         if (imageFile || fileFile) {
             const formData = new FormData();
             formData.append("message", sendText);
-
-            if (currentChatId) {
-                formData.append("chat_id", currentChatId);
-            }
+            formData.append("history", JSON.stringify(contextBeforeTurn));
 
             if (imageFile) {
                 formData.append("image", imageFile);
@@ -1026,12 +743,9 @@ async function sendMessage() {
             };
         } else {
             const body = {
-                message: sendText
+                message: sendText,
+                history: contextBeforeTurn
             };
-
-            if (currentChatId) {
-                body.chat_id = currentChatId;
-            }
 
             options = {
                 method: "POST",
@@ -1046,15 +760,16 @@ async function sendMessage() {
 
         loading.remove();
 
-        currentChatId = data.chat_id || currentChatId;
+        const reply = data.reply || data.response || data.message || "No response.";
 
-        addMessage(
-            data.reply || data.response || data.message || "No response.",
-            "ai-message"
-        );
+        addMessage(reply, "ai-message");
 
+        const rememberedUser = sendText
+            || (imageFile ? "[Image attached]" : "")
+            || (fileFile ? "[File attached: " + fileFile.name + "]" : "");
+
+        rememberTurn(rememberedUser, reply);
         updateMode(data.mode || "general");
-        await loadChats();
     } catch (error) {
         loading.remove();
 
@@ -1072,7 +787,6 @@ async function sendMessage() {
         input?.focus();
     }
 }
-
 if (sendBtn) {
     sendBtn.addEventListener("click", sendMessage);
 }
@@ -1172,10 +886,9 @@ window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
 (function init() {
-    getDaliUserId();
     showWelcome();
     updateConnectionStatus();
-    loadChats();
+    updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("./sw.js").catch(error => {
