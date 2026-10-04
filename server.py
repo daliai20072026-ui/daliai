@@ -364,40 +364,6 @@ with app.app_context():
 
 
 # =========================================================
-# SECURITY HEADERS
-# =========================================================
-
-@app.after_request
-def add_security_headers(response):
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
-
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "base-uri 'self'; "
-        "form-action 'self'; "
-        "frame-ancestors 'self'; "
-        "object-src 'none'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; "
-        "img-src 'self' data: blob:; "
-        "connect-src 'self'; "
-        "frame-src 'self'"
-    )
-
-    if request.path.startswith("/api/"):
-        response.headers["Cache-Control"] = "no-store"
-
-    if IS_PRODUCTION:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-
-    return response
-
-
-# =========================================================
 # ANONYMOUS BROWSER ID
 # =========================================================
 
@@ -753,10 +719,9 @@ def request_security():
         return None
 
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-        if not get_user_id():
-            return jsonify({
-                "error": "Missing or invalid X-Dali-User header."
-            }), 400
+        # Establish a server-issued anonymous session. The client cannot
+        # choose or impersonate another user's ID anymore.
+        get_user_id()
 
     if request.method == "POST" and request.path == "/api/chat":
         content_type = (request.content_type or "").lower()
