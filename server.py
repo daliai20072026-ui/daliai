@@ -1235,6 +1235,51 @@ PUBLIC_FILES = {
 }
 
 
+@app.route("/sitemap.xml")
+def sitemap():
+    base_url = APP_ORIGIN or request.host_url.rstrip("/")
+    urls = [
+        (base_url + "/", "1.0", "daily"),
+        (base_url + "/chat.html", "0.9", "weekly"),
+        (base_url + "/download.html", "0.7", "monthly"),
+        (base_url + "/Features.html", "0.7", "monthly"),
+    ]
+
+    xml_items = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    ]
+
+    for loc, priority, changefreq in urls:
+        xml_items.extend([
+            "  <url>",
+            f"    <loc>{loc}</loc>",
+            f"    <changefreq>{changefreq}</changefreq>",
+            f"    <priority>{priority}</priority>",
+            "  </url>"
+        ])
+
+    xml_items.append("</urlset>")
+
+    response = app.response_class(
+        "\n".join(xml_items),
+        mimetype="application/xml"
+    )
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@app.route("/robots.txt")
+def robots():
+    base_url = APP_ORIGIN or request.host_url.rstrip("/")
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        f"Sitemap: {base_url}/sitemap.xml\n"
+    )
+    return app.response_class(content, mimetype="text/plain")
+
+
 @app.route("/")
 def index():
     return send_from_directory(BASE_DIR, "index.html")
