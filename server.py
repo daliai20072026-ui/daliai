@@ -981,7 +981,7 @@ def chat():
             "mode": effective_mode,
             "has_image": bool(image_bytes),
             "saved": False
-        }))
+        })
 
     except Exception as error:
         app.logger.exception("Dali AI request failed")
