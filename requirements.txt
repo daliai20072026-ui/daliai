@@ -1,7 +1,6 @@
 Flask
 Flask-Limiter
 g4f
-requests
 pypdf
 python-docx
 openpyxl
