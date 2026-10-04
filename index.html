@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dali AI</title>
+    <meta name="google-site-verification" content="xHIX83D3-zNFnjXQ6esqEWiC4fCnfF8EwnJVyoqn6DI" />
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="logo.ico" type="image/x-icon">
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./sw.js").catch(() => {});
+            });
+        }
+    </script>
+</head>
+<body>
+    <nav class="nav">
+
+        <div class="nav_c">
+            <a href="index.html" class="logo">
+                <img src="/logo.png" alt="Dali AI Logo">
+                <span>Dali AI</span>
+            </a>
+            <div class="links">
+
+                <a href="index.html">
+                    Home
+                </a>
+
+                <a href="#features">
+                    Features
+                </a>
+
+                <a href="download.html">
+                    Download
+                </a>
+                <div class="git">
+                    <a
+                        href="https://github.com/daliai20072026-ui/daliai"
+                        target="_blank"
+                        rel="noopener noreferrer">
+                        GitHub
+                    </a>
+                </div>
+
+            </div>
+
+        </div>
+
+    </nav>
+    <main class="hero">
+
+        <h1>
+            Welcome to <span>Dali AI</span>
+        </h1>
+
+        <p>
+            This is an AI assistant that is available right inside your web browser.
+        </p>
+
+        <p>
+            Dali AI uses the power of Google Gemini to help you answer questions,
+            understand information, write content, solve problems, and explore ideas.
+        </p>
+
+        <h3>
+            Simple. Fast. Intelligent.
+        </h3>
+
+        <p>
+            Start a conversation with Dali AI and discover a smarter way to interact
+            with artificial intelligence.
+        </p>
+        <a href="chat.html" class="button">Get Started</a>
+    </main>
+    <section class="features-section" id="features">
+
+        <h2 style="text-align: center;">Key Features</h2>
+
+        <iframe
+            src="Features.html"
+            name="frame1"
+            title="Dali AI Features">
+        </iframe>
+
+    </section>
+</body>
+</html>

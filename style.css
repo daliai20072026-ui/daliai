@@ -1,0 +1,243 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #0D1117;
+    color: white;
+    font-family: "Inter", sans-serif;
+}
+
+
+
+.nav {
+    position: sticky;
+    top: 0;
+    background-color: #0D1117;
+    border-bottom: 1px solid #30363D;
+    z-index: 1000;
+}
+
+.nav_c {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    text-decoration: none;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+}
+
+.logo img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+}
+
+
+
+.nav_c a {
+    text-decoration: none;
+}
+
+.links {
+    display: flex;
+    gap: 30px;
+}
+
+.links a {
+    color: #8B949E;
+    transition: 0.3s ease;
+}
+
+.links a:hover {
+    color: #00E5FF;
+}
+
+
+
+.hero {
+    max-width: 900px;
+    margin: 100px auto;
+    padding: 50px;
+    text-align: center;
+}
+
+.hero h1 {
+    font-size: 55px;
+    font-weight: 700;
+    margin-bottom: 30px;
+}
+
+.hero h1 span {
+    color: #00E5FF;
+}
+
+.hero p {
+    color: #8B949E;
+    font-size: 18px;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.hero h3 {
+    color: #7EE787;
+    font-size: 22px;
+    margin: 35px 0 20px;
+}
+.git {
+    display: inline-block;
+    background-color: #00E5FF;
+    color: #0D1117;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    text-decoration: none;
+
+    transition: all 0.3s ease;
+}
+
+.git:hover {
+    background-color: #7EE787;
+    transform: translateY(-3px);
+}
+
+
+iframe {
+    width: 100%;
+    height: 900px;
+    border: none;
+}
+/* =========================
+   RESPONSIVE DESIGN
+   ========================= */
+
+/* Tablet */
+@media (max-width: 768px) {
+
+    .nav_c {
+        padding: 1rem;
+    }
+
+    .links {
+        gap: 15px;
+    }
+
+    .links a {
+        font-size: 14px;
+    }
+
+    .hero {
+        margin: 60px auto;
+        padding: 30px;
+    }
+
+    .hero h1 {
+        font-size: 40px;
+    }
+
+    .hero p {
+        font-size: 16px;
+    }
+
+    .hero h3 {
+        font-size: 20px;
+    }
+
+    iframe {
+        height: 1000px;
+    }
+}
+
+
+/* Phone */
+@media (max-width: 500px) {
+
+    .nav_c {
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .logo {
+        font-size: 20px;
+    }
+
+    .logo img {
+        width: 30px;
+        height: 30px;
+    }
+
+    .links {
+        width: 100%;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .links a {
+        font-size: 13px;
+    }
+
+    .hero {
+        margin: 40px auto;
+        padding: 20px;
+    }
+
+    .hero h1 {
+        font-size: 32px;
+        line-height: 1.2;
+        margin-bottom: 20px;
+    }
+
+    .hero p {
+        font-size: 15px;
+        line-height: 1.6;
+    }
+
+    .hero h3 {
+        font-size: 18px;
+        margin: 25px 0 15px;
+    }
+
+    iframe {
+        height: 1200px;
+    }
+}
+html {
+    scroll-behavior: smooth;
+}
+.button {
+    display: inline-block;
+    text-decoration: none;
+    color: #0D1117;
+    background-color: #00E5FF;
+
+    padding: 12px 25px;
+    border-radius: 20px;
+
+    font-size: 18px;
+    font-weight: 600;
+
+    transition: all 0.3s ease;
+}
+
+.button:hover {
+    transform: translateY(-3px);
+    background-color: #7ee7e5;
+}

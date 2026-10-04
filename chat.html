@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    >
+
+    <title>Dali AI - Chat</title>
+
+    <link
+        rel="shortcut icon"
+        href="logo.ico"
+        type="image/x-icon"
+    >
+
+    <!-- =================================================
+         FONT
+    ================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300,0,0"
+        rel="stylesheet"
+    >
+<!-- =================================================
+         CSS
+    ================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="./chat.css?v=13"
+    >
+
+    <!-- =================================================
+         MATHJAX
+    ================================================== -->
+
+    <script>
+
+        window.MathJax = {
+
+            tex: {
+
+                inlineMath: [
+                    ["\\(", "\\)"],
+                    ["$", "$"]
+                ],
+
+                displayMath: [
+                    ["\\[", "\\]"],
+                    ["$$", "$$"]
+                ],
+
+                processEscapes: true
+            },
+
+            options: {
+
+                skipHtmlTags: [
+                    "script",
+                    "noscript",
+                    "style",
+                    "textarea",
+                    "pre",
+                    "code"
+                ]
+            }
+        };
+
+    </script>
+
+    <script
+        defer
+        src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js">
+    </script>
+
+</head>
+
+
+<body>
+
+    <div class="offline-banner" id="offlineBanner">
+        You are offline. The AI is unavailable until your connection returns.
+    </div>
+
+
+    <!-- =================================================
+         MOBILE SIDEBAR OVERLAY
+    ================================================== -->
+
+    <div
+        class="sidebar-overlay"
+        id="sidebarOverlay">
+    </div>
+
+
+    <!-- =================================================
+         SIDEBAR
+    ================================================== -->
+
+    <aside
+        class="sidebar"
+        id="sidebar"
+    >
+
+        <!-- LOGO -->
+
+        <a
+            href="index.html"
+            class="logo"
+        >
+
+            <img
+                src="/logo.png"
+                alt="Dali AI Logo"
+            >
+
+            <span>
+                Dali AI
+            </span>
+
+        </a>
+
+
+        <!-- NEW CHAT -->
+
+        <button
+            class="new-chat"
+            id="newChatBtn"
+            type="button"
+        >
+
+            <span>
+                +
+            </span>
+
+            New Chat
+
+        </button>
+
+
+        <!-- NAVIGATION -->
+
+        <div class="sidebar-section">
+
+            <p class="sidebar-label">
+                MENU
+            </p>
+
+            <a href="chat.html" class="sidebar-link active">
+                <span class="material-symbols-rounded nav-icon" aria-hidden="true">chat_bubble</span>
+                <span>Chats</span>
+            </a>
+
+        </div>
+
+
+        <!-- RECENT CHATS -->
+
+        <p class="history-title">
+            RECENT CHATS
+        </p>
+
+
+        <div
+            class="history"
+            id="history"
+        ></div>
+
+
+        <!-- GUEST PROFILE -->
+
+        <div class="guest-profile">
+            <div class="guest-avatar material-symbols-rounded" aria-hidden="true">person</div>
+            <div class="guest-info">
+                <strong>Guest User</strong>
+                <span>Browser session</span>
+            </div>
+        </div>
+
+
+        <!-- SIDEBAR BOTTOM -->
+
+        <div class="sidebar-bottom">
+            <a href="index.html" class="sidebar-link">
+                <span class="material-symbols-rounded nav-icon" aria-hidden="true">home</span>
+                <span>Home</span>
+            </a>
+
+            <a href="download.html" class="sidebar-link">
+                <span class="material-symbols-rounded nav-icon" aria-hidden="true">download</span>
+                <span>Download App</span>
+            </a>
+        </div>
+    </aside>
+
+
+    <!-- =================================================
+         CHAT
+    ================================================== -->
+
+    <main class="chat-container">
+
+
+        <!-- =================================================
+             HEADER
+        ================================================== -->
+
+        <header class="chat-header">
+
+
+            <div class="chat-title">
+
+
+                <!-- MOBILE MENU -->
+
+                <button
+                    type="button"
+                    class="mobile-menu-btn"
+                    id="mobileMenuBtn"
+                    aria-label="Open menu"
+                    title="Open menu"
+                >
+                    <span class="material-symbols-rounded" aria-hidden="true">menu</span>
+                </button>
+
+
+                <!-- LOGO -->
+
+                <div class="title-logo">
+
+                    <img
+                        src="/logo.png"
+                        alt="Dali AI"
+                    >
+
+                </div>
+
+
+                <!-- TITLE -->
+
+                <div class="title-info">
+
+                    <h2>
+                        Dali AI
+                    </h2>
+
+
+                    <div
+                        class="status"
+                        id="connectionStatus"
+                    >
+
+                        <span
+                            class="status-dot"
+                            id="statusDot"
+                        ></span>
+
+                        <span id="statusText">
+                            Online
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- HEADER ACTIONS -->
+
+            <div class="header-actions">
+                <span class="mode-badge" id="modeBadge">General</span>
+
+                <button
+                    class="clear-chat"
+                    id="clearChatBtn"
+                    type="button"
+                    title="Start fresh"
+                >
+                    <span class="material-symbols-rounded" aria-hidden="true">refresh</span>
+                    <span>Clear</span>
+                </button>
+            </div>
+        </header>
+
+
+        <!-- =================================================
+             MESSAGES
+        ================================================== -->
+
+        <section
+            class="messages"
+            id="messages"
+        >
+
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-logo">
+                    <img src="/logo.png" alt="Dali AI">
+                </div>
+
+                <p class="welcome-eyebrow">Your everyday AI assistant</p>
+
+                <h1>What can I help you with?</h1>
+
+                <p class="welcome-subtitle">
+                    Ask a question, upload a file, get help with school,
+                    write something, or work on your code.
+                </p>
+
+                <div class="quick-prompts">
+                    <button type="button" class="prompt-card" data-prompt="Explain this topic in a simple way.">
+                        <span class="material-symbols-rounded prompt-icon" aria-hidden="true">school</span>
+                        <span>
+                            <strong>Study</strong>
+                            <small>Explain something simply</small>
+                        </span>
+                    </button>
+
+                    <button type="button" class="prompt-card" data-prompt="Help me fix this code and explain the error.">
+                        <span class="material-symbols-rounded prompt-icon" aria-hidden="true">code</span>
+                        <span>
+                            <strong>Coding</strong>
+                            <small>Fix and explain code</small>
+                        </span>
+                    </button>
+
+                    <button type="button" class="prompt-card" data-prompt="Solve this math exercise step by step.">
+                        <span class="material-symbols-rounded prompt-icon" aria-hidden="true">calculate</span>
+                        <span>
+                            <strong>Math</strong>
+                            <small>Step-by-step solutions</small>
+                        </span>
+                    </button>
+
+                    <button type="button" class="prompt-card" data-prompt="Write a clear and professional version of this text.">
+                        <span class="material-symbols-rounded prompt-icon" aria-hidden="true">edit_note</span>
+                        <span>
+                            <strong>Writing</strong>
+                            <small>Write or improve text</small>
+                        </span>
+                    </button>
+                </div>
+
+                <p class="welcome-hint">
+                    Use <strong>Attach</strong> to add a file or image.
+                </p>
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             INPUT
+        ================================================== -->
+
+        <div class="input-area">
+
+
+            <!-- ATTACHMENT PREVIEW -->
+
+            <div
+                class="image-preview attachment-preview"
+                id="imagePreview"
+            >
+
+                <img
+                    id="previewImage"
+                    src="about:blank"
+                    alt="Selected image"
+                >
+
+                <div
+                    id="filePreviewInfo"
+                    class="file-preview-info"
+                >
+                    <span id="filePreviewIcon" class="material-symbols-rounded" aria-hidden="true">attach_file</span>
+                    <span id="filePreviewName">No file selected</span>
+                </div>
+
+                <button
+                    type="button"
+                    id="removeImageBtn"
+                    class="remove-image"
+                    title="Remove attachment"
+                    aria-label="Remove attachment"
+                >
+                    <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                </button>
+
+            </div>
+
+
+            <!-- ONE INPUT BOX -->
+
+            <div class="input-box">
+
+
+                <!-- ATTACHMENT MENU -->
+
+            <div class="attachment-menu-wrap">
+
+                <button
+                    type="button"
+                    class="attach-btn"
+                    id="imageBtn"
+                    title="Attach a file"
+                    aria-label="Attach a file"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                >
+                    <span class="material-symbols-rounded" aria-hidden="true">attach_file</span>
+                </button>
+
+                <div
+                    class="attachment-menu"
+                    id="attachmentMenu"
+                    role="menu"
+                    aria-hidden="true"
+                >
+
+                    <button type="button" class="attachment-option" data-accept=".pdf,application/pdf" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">picture_as_pdf</span>
+                        <span><strong>PDF</strong><small>PDF documents</small></span>
+                    </button>
+
+                    <button type="button" class="attachment-option" data-accept="image/*" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">image</span>
+                        <span><strong>Image</strong><small>JPG, PNG, WEBP, GIF</small></span>
+                    </button>
+
+                    <button type="button" class="attachment-option" data-accept=".docx,.txt,.md,text/plain,text/markdown" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">description</span>
+                        <span><strong>Document</strong><small>DOCX, TXT, Markdown</small></span>
+                    </button>
+
+                    <button type="button" class="attachment-option" data-accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">slideshow</span>
+                        <span><strong>PowerPoint</strong><small>PPTX</small></span>
+                    </button>
+
+                    <button type="button" class="attachment-option" data-accept=".xlsx,.xlsm,.csv" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">table_chart</span>
+                        <span><strong>Spreadsheet</strong><small>XLSX, XLSM, CSV</small></span>
+                    </button>
+
+                    <button type="button" class="attachment-option" data-accept="*/*" role="menuitem">
+                        <span class="material-symbols-rounded file-option-icon" aria-hidden="true">attach_file</span>
+                        <span><strong>Anything</strong><small>Choose any file</small></span>
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <input
+                type="file"
+                id="imageInput"
+                accept="*/*"
+                hidden
+            >
+
+
+            <!-- TEXT -->
+
+                <textarea
+                    id="messageInput"
+                    placeholder="Ask Dali AI anything..."
+                    rows="1"
+                    maxlength="8000"
+                    aria-label="Message"
+                ></textarea>
+
+
+            <!-- VOICE CHAT -->
+
+            <button
+                type="button"
+                class="voice-btn"
+                id="voiceBtn"
+                title="Voice Chat — Coming Soon"
+                aria-label="Voice Chat — Coming Soon"
+                disabled
+            >
+                <span class="material-symbols-rounded" aria-hidden="true">mic</span>
+                <span class="voice-coming-soon">Coming Soon</span>
+            </button>
+
+
+                <!-- SEND -->
+
+                <button
+                    class="send-btn"
+                    id="sendBtn"
+                    type="button"
+                    aria-label="Send message"
+                    title="Send message"
+                >
+
+                    <img
+                        src="/sed.png"
+                        alt="Send"
+                    >
+
+                </button>
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <p class="footer-text">
+
+                Dali AI can make mistakes.
+                Check important information.
+
+            </p>
+
+        </div>
+
+    </main>
+
+
+    <!-- =================================================
+         MARKED
+    ================================================== -->
+
+    <script
+        defer
+        src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js">
+    </script>
+
+
+    <!-- =================================================
+         DOMPURIFY
+    ================================================== -->
+
+    <script
+        defer
+        src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js">
+    </script>
+
+
+    <!-- =================================================
+         DALI AI
+    ================================================== -->
+
+    <script
+        defer
+        src="./chat.js?v=20">
+    </script>
+
+
+    <!-- =================================================
+         MOBILE SIDEBAR
+    ================================================== -->
+
+    <script>
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            function () {
+
+                const menuBtn =
+                    document.getElementById(
+                        "mobileMenuBtn"
+                    );
+
+                const sidebar =
+                    document.getElementById(
+                        "sidebar"
+                    );
+
+                const overlay =
+                    document.getElementById(
+                        "sidebarOverlay"
+                    );
+
+
+                function openSidebar() {
+
+                    if (sidebar) {
+
+                        sidebar.classList.add(
+                            "mobile-open"
+                        );
+                    }
+
+                    if (overlay) {
+
+                        overlay.classList.add(
+                            "show"
+                        );
+                    }
+
+                    document.body.classList.add(
+                        "sidebar-open"
+                    );
+                }
+
+
+                function closeSidebar() {
+
+                    if (sidebar) {
+
+                        sidebar.classList.remove(
+                            "mobile-open"
+                        );
+                    }
+
+                    if (overlay) {
+
+                        overlay.classList.remove(
+                            "show"
+                        );
+                    }
+
+                    document.body.classList.remove(
+                        "sidebar-open"
+                    );
+                }
+
+
+                if (menuBtn) {
+
+                    menuBtn.addEventListener(
+                        "click",
+                        function () {
+
+                            if (
+                                sidebar &&
+                                sidebar.classList.contains(
+                                    "mobile-open"
+                                )
+                            ) {
+
+                                closeSidebar();
+
+                            } else {
+
+                                openSidebar();
+
+                            }
+
+                        }
+                    );
+
+                }
+
+
+                if (overlay) {
+
+                    overlay.addEventListener(
+                        "click",
+                        closeSidebar
+                    );
+
+                }
+
+
+                if (sidebar) {
+
+                    sidebar
+                        .querySelectorAll("a")
+                        .forEach(
+                            function (link) {
+
+                                link.addEventListener(
+                                    "click",
+                                    closeSidebar
+                                );
+
+                            }
+                        );
+
+                }
+
+            }
+        );
+
+    </script>
+
+</body>
+
+</html>

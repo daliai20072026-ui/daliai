@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dali AI - Features</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0D1117;
+            color: #F0F6FC;
+            font-family: "Inter", sans-serif;
+
+            padding: 40px;
+
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+        }
+
+        .card {
+            background-color: #161B22;
+            border: 1px solid #30363D;
+            border-radius: 25px;
+            padding: 30px;
+
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            border-color: #00E5FF;
+            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.08);
+        }
+
+        /* ICON */
+        .card i {
+            display: block;
+            color: #00E5FF;
+            font-size: 35px;
+            margin-bottom: 20px;
+
+            transition: all 0.3s ease;
+        }
+
+        .card:hover i {
+            transform: scale(1.1);
+        }
+
+        .card h3 {
+            color: #00E5FF;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .card p {
+            color: #8B949E;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* TABLET */
+        @media (max-width: 900px) {
+            body {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* PHONE */
+        @media (max-width: 600px) {
+            body {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+
+            .card {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <i class="fa-solid fa-robot"></i>
+        <h3>AI-Powered Chat</h3>
+        <p>
+            Chat naturally with Dali AI and get intelligent answers
+            powered by Google Gemini.
+        </p>
+    </div>
+
+    <div class="card">
+        <i class="fa-solid fa-bolt"></i>
+        <h3>Fast Responses</h3>
+        <p>
+            Get quick answers and interact with the AI in real time.
+        </p>
+    </div>
+
+    <div class="card">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <h3>Chat History</h3>
+        <p>
+            Keep your previous conversations organized and easily
+            return to them whenever you need.
+        </p>
+    </div>
+
+    <div class="card">
+        <i class="fa-solid fa-pen-to-square"></i>
+        <h3>Writing Assistant</h3>
+        <p>
+            Write, rewrite, summarize, and improve your text
+            with the help of AI.
+        </p>
+    </div>
+
+    <div class="card">
+        <i class="fa-solid fa-code"></i>
+        <h3>Coding Assistant</h3>
+        <p>
+            Get help understanding, writing, debugging,
+            and improving your code.
+        </p>
+    </div>
+
+    
+
+    <div class="card">
+        <i class="fa-solid fa-globe"></i>
+        <h3>Browser-Based</h3>
+        <p>
+            Use Dali AI directly from your web browser
+            without installing anything.
+        </p>
+    </div>
+
+    <div class="card">
+        <i class="fa-solid fa-desktop"></i>
+        <h3>Desktop App</h3>
+        <p>
+            Download the Dali AI desktop app and use it
+            directly on your computer.
+        </p>
+    </div>
+
+</body>
+
+</html>
