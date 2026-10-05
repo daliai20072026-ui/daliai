@@ -47,7 +47,7 @@ async function speakDali(text) {
             response = await fetch(API_BASE + "/api/voice", {
                 method: "POST",
                 cache: "no-store",
-                credentials: "omit",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     "Accept": "audio/wav,audio/*"
@@ -221,7 +221,7 @@ async function apiRequest(path, options = {}) {
             API_BASE + path,
             {
                 cache: "no-store",
-                credentials: "omit",
+                credentials: "same-origin",
                 ...options,
                 headers,
                 signal: options.signal || controller.signal
@@ -240,12 +240,16 @@ async function apiRequest(path, options = {}) {
 
     if (!response.ok) {
         const rawError = data.error ?? data.details;
-        const message =
+        let message =
             typeof rawError === "string"
                 ? rawError
                 : rawError && typeof rawError === "object"
                     ? (rawError.message || rawError.error || JSON.stringify(rawError))
                     : ("Request failed with HTTP " + response.status);
+
+        if (response.status === 401 && /protected deployment/i.test(message)) {
+            message = "This Vercel deployment is protected. Use the public Production URL, or sign in to Vercel for this deployment.";
+        }
 
         throw new Error(message);
     }
