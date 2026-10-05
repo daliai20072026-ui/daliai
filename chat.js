@@ -500,35 +500,71 @@ function addCopyButtons(message, originalText = "") {
 async function renderMath(element, attempts = 0) {
     if (!element) return;
 
-    if (typeof MathJax === "undefined") {
-        if (attempts >= 50) {
-            console.warn("MathJax did not load; leaving LaTeX source visible.");
+    // MathJax v4 is loaded asynchronously. Wait for the actual typesetting
+    // API instead of relying on startup.promise being present.
+    if (
+        typeof MathJax === "undefined" ||
+        typeof MathJax.typesetPromise !== "function"
+    ) {
+        if (attempts >= 60) {
+            console.warn("MathJax did not become ready; leaving LaTeX source visible.");
             return;
         }
-        setTimeout(() => renderMath(element, attempts + 1), 200);
+
+        setTimeout(() => renderMath(element, attempts + 1), 150);
         return;
     }
 
     try {
-        if (MathJax.startup?.promise) {
-            await MathJax.startup.promise;
-        }
-
-        if (MathJax.typesetClear) {
+        // MathJax v4 serializes typesetPromise() calls itself. Do not block on
+        // startup.promise here; wait for the typesetting operation directly.
+        if (typeof MathJax.typesetClear === "function") {
             MathJax.typesetClear([element]);
         }
 
-        // Give the browser one paint cycle after innerHTML is inserted.
+        // Wait until the browser has committed the newly inserted HTML.
         await new Promise(resolve => requestAnimationFrame(resolve));
 
         await MathJax.typesetPromise([element]);
     } catch (error) {
-        console.error("MathJax error:", error);
-        if (attempts < 3) {
-            setTimeout(() => renderMath(element, attempts + 1), 250);
+        console.error("MathJax typesetting failed:", error);
+
+        if (attempts < 5) {
+            setTimeout(() => renderMath(element, attempts + 1), 300);
         }
     }
 }
+
+function renderAllMath() {
+    if (typeof MathJax === "undefined") return;
+
+    document.querySelectorAll(".message-content").forEach(element => {
+        if (element.textContent.includes("\\(") ||
+            element.textContent.includes("\\[") ||
+            element.textContent.includes("$") ||
+            /(^|[^\\])\$[^\n]+\$/.test(element.textContent)) {
+            renderMath(element);
+        }
+    });
+}
+
+// Also typeset messages restored from sessionStorage after MathJax finishes
+// loading. This makes old conversations render correctly on refresh.
+window.addEventListener("load", () => {
+    const waitForMathJax = () => {
+        if (
+            typeof MathJax !== "undefined" &&
+            typeof MathJax.typesetPromise === "function"
+        ) {
+            renderAllMath();
+            return;
+        }
+
+        setTimeout(waitForMathJax, 150);
+    };
+
+    waitForMathJax();
+});
 
 function parseStoredFile(text) {
     const match = String(text || "").match(
