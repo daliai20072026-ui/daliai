@@ -136,7 +136,7 @@ XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
 
 # Hugging Face ZeroGPU XTTS Space (preferred). A public temporary Space is
 # used by default so voice works without an API key or extra server.
-XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "applore/xtts-voice-cloning-demo"
+XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "abdelati88/voice-clone"
 XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
 XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
@@ -1104,14 +1104,11 @@ def _synthesize_with_hf_xtts(text):
 
     client = Client(XTTS_HF_SPACE, **client_kwargs)
 
-    # The public XTTS Space uses a normal Gradio Audio filepath input.
-    # handle_file() downloads/uploads the reference audio while preserving
-    # the actual file type, avoiding the broken MP3-as-WAV handling of the
-    # previous URL-based endpoint.
+    # Arabic XTTS Space: inputs are exactly (text, reference_audio).
+    # The Space forces Arabic output, so no language argument is needed.
     result = client.predict(
         text,
         handle_file(XTTS_REFERENCE_URL),
-        XTTS_LANGUAGE,
         api_name=XTTS_HF_API_NAME
     )
 
