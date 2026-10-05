@@ -19,6 +19,47 @@ const filePreviewName = document.getElementById("filePreviewName");
 const removeImageBtn = document.getElementById("removeImageBtn");
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
+const voiceBtn = document.getElementById("voiceBtn");
+let voiceAudio = null;
+let voiceBusy = false;
+
+async function speakDali(text) {
+    if (!text || voiceBusy) return;
+    voiceBusy = true;
+    if (voiceBtn) voiceBtn.classList.add("voice-loading");
+    try {
+        const response = await apiRequest("/api/voice", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({text})
+        });
+        const blob = await response.blob();
+        if (voiceAudio) {
+            voiceAudio.pause();
+            URL.revokeObjectURL(voiceAudio.src);
+        }
+        voiceAudio = new Audio(URL.createObjectURL(blob));
+        await voiceAudio.play();
+    } catch (error) {
+        console.error("Voice cloning error:", error);
+        addMessage("Voice is not available yet. Make sure the local XTTS model is installed on the server.", "ai-message");
+    } finally {
+        voiceBusy = false;
+        if (voiceBtn) voiceBtn.classList.remove("voice-loading");
+    }
+}
+
+function addSpeakButton(message, text) {
+    if (!message || !text) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "message-speak-btn";
+    button.textContent = "🔊 Speak";
+    button.title = "Speak this answer with the cloned voice";
+    button.addEventListener("click", () => speakDali(text));
+    message.appendChild(button);
+}
+
 
 let selectedImage = null;
 let selectedImageUrl = null;
@@ -489,6 +530,7 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
 
     if (type === "ai-message") {
         addCopyButtons(message, text);
+        addSpeakButton(message, text);
         renderMath(message);
     }
 
@@ -1112,3 +1154,11 @@ updateConnectionStatus();
         });
     }
 })();
+if (voiceBtn) {
+    voiceBtn.addEventListener("click", () => {
+        const lastAssistant = [...document.querySelectorAll(".message.ai-message")].pop();
+        if (!lastAssistant) return;
+        const speakTarget = lastAssistant.querySelector(".message-content");
+        if (speakTarget) speakDali(speakTarget.innerText || "");
+    });
+}
