@@ -4732,3 +4732,136 @@ body {
 }
 
 .image-preview-status:empty { display: none; }
+
+
+/* =========================================================
+   VOICE CHAT — CLEAR RECORDING UX
+========================================================= */
+
+.voice-control {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.voice-status {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 9px);
+    display: none;
+    align-items: center;
+    gap: 7px;
+    max-width: 220px;
+    padding: 8px 10px;
+    border: 1px solid #34414f;
+    border-radius: 11px;
+    background: #111820;
+    color: #c7d0da;
+    font-size: 10px;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: 0 12px 32px rgba(0,0,0,.32);
+    z-index: 120;
+}
+
+.voice-status.show {
+    display: flex;
+}
+
+.voice-status-dot {
+    width: 7px;
+    height: 7px;
+    flex: 0 0 7px;
+    border-radius: 50%;
+    background: #7ee787;
+}
+
+.voice-btn {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    flex: 0 0 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid #3b4755;
+    border-radius: 13px;
+    background: #151c25;
+    color: #d6dee7;
+    cursor: pointer;
+    opacity: 1;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.voice-mic {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.voice-label {
+    display: none;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.voice-btn:hover {
+    border-color: rgba(0,229,255,.65);
+    background: #19232e;
+}
+
+.voice-btn.voice-listening {
+    border-color: #f85149;
+    background: rgba(248,81,73,.12);
+    color: #ff9b94;
+    box-shadow: 0 0 0 4px rgba(248,81,73,.08), 0 0 22px rgba(248,81,73,.12);
+    animation: voicePulse 1.15s ease-in-out infinite;
+}
+
+.voice-btn.voice-thinking {
+    border-color: rgba(0,229,255,.7);
+    background: rgba(0,229,255,.09);
+}
+
+.voice-btn.voice-speaking {
+    border-color: rgba(126,231,135,.7);
+    background: rgba(126,231,135,.09);
+    color: #7ee787;
+}
+
+.voice-btn.voice-error,
+.voice-btn.voice-unavailable {
+    border-color: rgba(248,81,73,.45);
+    color: #ff9b94;
+}
+
+.voice-btn.voice-listening .voice-mic {
+    font-size: 14px;
+}
+
+.voice-btn:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
+
+@keyframes voicePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@media (max-width: 767px) {
+    .voice-status {
+        right: -4px;
+        bottom: calc(100% + 8px);
+        max-width: calc(100vw - 28px);
+    }
+
+    .voice-btn {
+        width: 43px;
+        height: 43px;
+        min-width: 43px;
+    }
+}
+
