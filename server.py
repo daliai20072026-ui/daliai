@@ -49,7 +49,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-1.8"
+BACKEND_VERSION = "dali-g4f-gemini-1.9"
 
 app = Flask(__name__)
 
@@ -728,7 +728,18 @@ def health():
     return jsonify({
         "status": "Dali AI backend is running",
         "version": BACKEND_VERSION,
-        "g4f": True
+        "g4f": True,
+        "voice_configured": bool(XTTS_SERVER_URL)
+    })
+
+
+@app.route("/api/voice/status", methods=["GET"])
+@limiter.exempt
+def voice_status():
+    return jsonify({
+        "configured": bool(XTTS_SERVER_URL),
+        "language": XTTS_LANGUAGE,
+        "provider": "remote-xtts"
     })
 
 
@@ -1083,13 +1094,24 @@ def voice():
 
     except urllib_error.HTTPError as error:
         app.logger.exception("XTTS server HTTP error")
+        upstream_message = ""
+        try:
+            error_body = error.read(4096).decode("utf-8", errors="replace")
+            parsed = json.loads(error_body)
+            raw = parsed.get("error")
+            if isinstance(raw, str):
+                upstream_message = raw[:300]
+        except Exception:
+            pass
+
         return jsonify({
-            "error": f"XTTS server returned HTTP {error.code}."
+            "error": upstream_message
+                or f"XTTS server returned HTTP {error.code}."
         }), 502
     except (urllib_error.URLError, TimeoutError):
         app.logger.exception("XTTS server connection failed")
         return jsonify({
-            "error": "Could not connect to the XTTS voice server."
+            "error": "Could not connect to the XTTS voice server. Check XTTS_SERVER_URL and make sure the XTTS server is publicly reachable."
         }), 502
     except Exception:
         app.logger.exception("Voice proxy failed")
