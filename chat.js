@@ -67,74 +67,6 @@ async function getAudioBlobFromGradioResult(result) {
     return response.blob();
 }
 
-function speakWithBrowserVoice(text) {
-    return new Promise((resolve, reject) => {
-        if (!("speechSynthesis" in window)) {
-            reject(new Error("This browser does not support speech synthesis."));
-            return;
-        }
-
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = containsArabic(text) ? "ar-TN" : "en-US";
-        utterance.rate = 0.95;
-        utterance.pitch = 1;
-
-        utterance.onend = resolve;
-        utterance.onerror = () => reject(new Error("Browser voice playback failed."));
-
-        window.speechSynthesis.speak(utterance);
-    });
-}
-
-async function speakDali(text) {
-    if (!text || voiceBusy) return;
-
-    voiceBusy = true;
-    setVoiceBusyState("speaking", "Dali AI is speaking…");
-
-    if (voiceBtn) {
-        voiceBtn.classList.add("voice-loading");
-        voiceBtn.setAttribute("aria-busy", "true");
-    }
-
-    try {
-        // Keep the chat voice stable: use the browser directly.
-        // The public Gradio Space is currently failing upstream.
-        await speakWithBrowserVoice(text);
-    } catch (error) {
-        console.error("Voice playback error:", error);
-        addMessage(
-            "🔊 Voice could not be played: " +
-                (error?.message || "Unknown error."),
-            "ai-message"
-        );
-    } finally {
-        voiceBusy = false;
-
-        if (!speechListening) {
-            setVoiceBusyState("", "Voice ready");
-        }
-
-        if (voiceBtn) {
-            voiceBtn.classList.remove("voice-loading");
-            voiceBtn.setAttribute("aria-busy", "false");
-        }
-    }
-}
-
-function addSpeakButton(message, text) {
-    if (!message || !text) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "message-speak-btn";
-    button.textContent = "🔊 Speak";
-    button.title = "Speak this answer with the cloned voice";
-    button.addEventListener("click", () => speakDali(text));
-    message.appendChild(button);
-}
-
 
 let selectedImage = null;
 let selectedImageUrl = null;
@@ -661,7 +593,6 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
 
     if (type === "ai-message") {
         addCopyButtons(message, text);
-        addSpeakButton(message, text);
         renderMath(message);
     }
 
@@ -1161,10 +1092,8 @@ async function sendMessage() {
         const reply = data.reply || data.response || data.message || "No response.";
 
         addMessage(reply, "ai-message");
-
         if (voiceConversationMode) {
             voiceConversationMode = false;
-            await speakDali(reply);
         }
 
         const rememberedUser = sendText
