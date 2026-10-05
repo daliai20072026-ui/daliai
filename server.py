@@ -140,7 +140,7 @@ XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "minsus/Voice-Cloning-
 XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
 XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
-    "https://raw.githubusercontent.com/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
+    "https://media.githubusercontent.com/media/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
 ).strip()
 XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "").strip() or "/voice_clone_synthesis"
 
