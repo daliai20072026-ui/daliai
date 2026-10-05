@@ -63,6 +63,52 @@ PUBLIC_DIR = BASE_DIR / "public"
 
 
 # =========================================================
+# SECURITY HEADERS / REQUEST HARDENING
+# =========================================================
+
+@app.after_request
+def _apply_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "camera=(), geolocation=(), payment=(), usb=()"
+    )
+
+    if IS_PRODUCTION:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains"
+        )
+
+    return response
+
+
+@app.before_request
+def _block_untrusted_api_origins():
+    # Dali AI has no browser-side cross-origin API requirement. Reject
+    # browser requests from another origin to reduce drive-by API abuse.
+    if not request.path.startswith("/api/"):
+        return None
+    if request.method not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return None
+
+    origin = request.headers.get("Origin")
+    if not origin:
+        return None
+
+    expected_origin = APP_ORIGIN or request.host_url.rstrip("/")
+    if origin.rstrip("/") != expected_origin.rstrip("/"):
+        return jsonify({"error": "Cross-origin request blocked."}), 403
+
+    return None
+
+
+PUBLIC_DIR = BASE_DIR / "public"
+
+
+# =========================================================
 # ENVIRONMENT
 # =========================================================
 
@@ -121,6 +167,7 @@ MAX_MESSAGE_LENGTH = 8000
 MAX_EXTRACTED_TEXT = 60000
 MAX_PROMPT_CHARS = 60000
 MAX_AI_RESPONSE_CHARS = 30000
+MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
 # =========================================================
 # REMOTE XTTS VOICE SERVER
@@ -1074,12 +1121,34 @@ def _extract_audio_bytes(result):
                 ),
                 timeout=XTTS_TIMEOUT_SECONDS
             ) as response:
-                data = response.read()
+                declared_length = response.headers.get("Content-Length")
+                if declared_length:
+                    try:
+                        if int(declared_length) > MAX_VOICE_AUDIO_BYTES:
+                            raise RuntimeError("Voice service returned an oversized audio file.")
+                    except ValueError:
+                        pass
+
+                chunks = []
+                total = 0
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_VOICE_AUDIO_BYTES:
+                        raise RuntimeError("Voice service returned an oversized audio file.")
+                    chunks.append(chunk)
+
+                data = b"".join(chunks)
+
             if data:
                 return data, response.headers.get("Content-Type", "audio/wav")
 
         path = Path(candidate)
         if path.is_file():
+            if path.stat().st_size > MAX_VOICE_AUDIO_BYTES:
+                raise RuntimeError("Voice service returned an oversized audio file.")
             data = path.read_bytes()
             if data:
                 return data, "audio/wav"
@@ -1208,14 +1277,16 @@ def voice():
         }), 502
     except Exception as error:
         app.logger.exception("Voice synthesis failed")
-        message = str(error).strip()
-        if "queue" in message.lower():
-            message = "Voice service is busy. Please try again in a moment."
-        elif not message:
-            message = "Voice cloning server is unavailable."
-        return jsonify({
-            "error": message[:500]
-        }), 503
+        message = str(error).lower()
+
+        if "queue" in message or "busy" in message:
+            public_message = "Voice service is busy. Please try again in a moment."
+        elif "oversized" in message:
+            public_message = "Voice service returned an audio file that is too large."
+        else:
+            public_message = "Voice cloning service is temporarily unavailable."
+
+        return jsonify({"error": public_message}), 503
 
 
 # =========================================================
