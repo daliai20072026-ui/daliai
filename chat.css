@@ -4738,6 +4738,41 @@ body {
    VOICE CHAT — CLEAR RECORDING UX
 ========================================================= */
 
+.voice-language {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 42px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(255,255,255,.035);
+    color: var(--text);
+}
+
+.voice-language .ui-icon {
+    font-size: 14px;
+    opacity: .7;
+}
+
+.voice-language select {
+    appearance: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    max-width: 88px;
+}
+
+.voice-language select option {
+    background: #0b1018;
+    color: #fff;
+}
+
 .voice-control {
     position: relative;
     flex: 0 0 auto;
