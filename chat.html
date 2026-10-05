@@ -491,16 +491,23 @@
 
             <!-- VOICE CHAT -->
 
-            <button
-                type="button"
-                class="voice-btn"
-                id="voiceBtn"
-                title="Voice Chat — Speak and hear Dali AI in your cloned voice"
-                aria-label="Voice Chat — Speak and hear Dali AI in your cloned voice"
-            >
-                <span class="ui-icon" aria-hidden="true">●</span>
-                <span class="voice-coming-soon">Voice</span>
-            </button>
+            <div class="voice-control">
+                <div class="voice-status" id="voiceStatus" aria-live="polite">
+                    <span class="voice-status-dot" aria-hidden="true"></span>
+                    <span id="voiceStatusText">Voice ready</span>
+                </div>
+                <button
+                    type="button"
+                    class="voice-btn"
+                    id="voiceBtn"
+                    title="Voice Chat — tap to speak"
+                    aria-label="Voice Chat — tap to speak"
+                    aria-pressed="false"
+                >
+                    <span class="voice-mic" aria-hidden="true">🎙</span>
+                    <span class="voice-label">Voice</span>
+                </button>
+            </div>
 
 
                 <!-- SEND -->
@@ -563,7 +570,7 @@
 
     <script
         defer
-        src="./chat.js?v=29">
+        src="./chat.js?v=30">
     </script>
 
 
