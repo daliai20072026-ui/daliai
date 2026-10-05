@@ -30,6 +30,7 @@ async function speakDali(text) {
     if (!text || voiceBusy) return;
 
     voiceBusy = true;
+    setVoiceBusyState("speaking", "Dali AI is speaking…");
     if (voiceBtn) {
         voiceBtn.classList.add("voice-loading");
         voiceBtn.setAttribute("aria-busy", "true");
@@ -60,6 +61,9 @@ async function speakDali(text) {
 
         if (!response.ok) {
             let message = "Voice server request failed (HTTP " + response.status + ").";
+            if (response.status === 401 && /protected deployment/i.test(response.statusText || "")) {
+                message = "This Vercel deployment is protected. Open the public Production URL instead of the deployment preview URL.";
+            }
             try {
                 const data = await response.json();
                 if (data?.error) {
@@ -99,6 +103,7 @@ async function speakDali(text) {
         addMessage("🔊 Voice error: " + message, "ai-message");
     } finally {
         voiceBusy = false;
+        if (!speechListening) setVoiceBusyState("", "Voice ready");
         if (voiceBtn) {
             voiceBtn.classList.remove("voice-loading");
             voiceBtn.setAttribute("aria-busy", "false");
@@ -1282,50 +1287,92 @@ updateConnectionStatus();
         });
     }
 })();
+function setVoiceUi(state, text) {
+    if (!voiceBtn) return;
+    const status = document.getElementById("voiceStatus");
+    const statusText = document.getElementById("voiceStatusText");
+    const label = voiceBtn.querySelector(".voice-label");
+    const icon = voiceBtn.querySelector(".voice-mic");
+
+    voiceBtn.classList.remove("voice-listening", "voice-thinking", "voice-speaking", "voice-error");
+
+    if (state) voiceBtn.classList.add("voice-" + state);
+    if (label) label.textContent = state === "listening" ? "Stop" : "Voice";
+    if (icon) icon.textContent = state === "listening" ? "■" : "🎙";
+    if (statusText) statusText.textContent = text || "Voice ready";
+    if (status) status.classList.toggle("show", state === "listening" || state === "thinking" || state === "speaking" || state === "error");
+}
+
+function setVoiceBusyState(state, text) {
+    setVoiceUi(state, text);
+}
+
 if (voiceBtn) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+        voiceBtn.disabled = true;
+        voiceBtn.classList.add("voice-unavailable");
         voiceBtn.title = "Voice input is not supported by this browser";
         voiceBtn.setAttribute("aria-label", "Voice input is not supported by this browser");
+        setVoiceUi("error", "Voice input is not supported in this browser");
     } else {
         speechRecognition = new SpeechRecognition();
         speechRecognition.continuous = false;
-        speechRecognition.interimResults = false;
+        speechRecognition.interimResults = true;
         speechRecognition.lang = "ar-TN";
 
         speechRecognition.onstart = () => {
             speechListening = true;
             voiceConversationMode = true;
             voiceBtn.classList.add("voice-listening");
-            voiceBtn.querySelector(".voice-coming-soon")?.replaceChildren(
-                document.createTextNode("Listening…")
-            );
+            setVoiceUi("listening", "Listening… speak now");
         };
 
         speechRecognition.onresult = event => {
-            const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
+            let transcript = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i]?.[0]?.transcript || "";
+            }
+            transcript = transcript.trim();
             if (!transcript || !input) return;
+
             input.value = transcript;
             input.dispatchEvent(new Event("input", {bubbles: true}));
-            sendMessage();
+
+            const finalResult = event.results?.[event.results.length - 1];
+            if (finalResult?.isFinal) {
+                setVoiceUi("thinking", "Sending your voice message…");
+                sendMessage();
+            }
         };
 
         speechRecognition.onerror = event => {
             console.warn("Speech recognition error:", event.error);
             voiceConversationMode = false;
+            setVoiceUi("error", event.error === "not-allowed"
+                ? "Microphone permission was denied"
+                : "Voice input stopped — try again");
         };
 
         speechRecognition.onend = () => {
             speechListening = false;
             voiceBtn.classList.remove("voice-listening");
-            voiceBtn.querySelector(".voice-coming-soon")?.replaceChildren(
-                document.createTextNode("Voice")
-            );
+            if (!voiceBusy && !isSending) {
+                setVoiceUi("", "Voice ready");
+            }
         };
 
         voiceBtn.addEventListener("click", () => {
-            if (voiceBusy || isSending || speechListening) return;
+            if (voiceBusy || isSending) return;
+
+            if (speechListening) {
+                speechRecognition.stop();
+                voiceConversationMode = false;
+                setVoiceUi("", "Voice ready");
+                return;
+            }
+
             try {
                 speechRecognition.start();
             } catch (error) {
