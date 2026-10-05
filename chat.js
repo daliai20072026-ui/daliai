@@ -225,7 +225,9 @@ function protectMath(text) {
         text = text.replace(pattern, match => {
             const index = formulas.length;
             formulas.push(match);
-            return "DALI_MATH_TOKEN_" + index + "_END";
+            // Keep math outside Markdown parsing so underscores, asterisks,
+            // backslashes, and dollar signs are not rewritten by marked.
+            return "DALI_MATH_TOKEN" + index + "END";
         });
     }
 
@@ -234,7 +236,7 @@ function protectMath(text) {
 
 function restoreMath(text, formulas) {
     formulas.forEach((formula, index) => {
-        const token = "DALI_MATH_TOKEN_" + index + "_END";
+        const token = "DALI_MATH_TOKEN" + index + "END";
         text = text.replace(new RegExp(token, "g"), formula);
     });
 
@@ -505,6 +507,11 @@ async function renderMath(element, attempts = 0) {
     try {
         if (MathJax.startup?.promise) {
             await MathJax.startup.promise;
+        }
+
+        // Clear MathJax's previous typesetting state before re-rendering.
+        if (MathJax.typesetClear) {
+            MathJax.typesetClear([element]);
         }
 
         await MathJax.typesetPromise([element]);
