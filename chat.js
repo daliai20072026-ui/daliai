@@ -506,6 +506,145 @@ function makeCopyButton(label, successLabel, text) {
     return button;
 }
 
+
+async function fetchVoiceAudio(text, language = getVoiceLanguageCode()) {
+    const value = String(text || "").trim();
+    if (!value) {
+        throw new Error("Nothing to speak.");
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 90000);
+
+    try {
+        const response = await fetch("/api/voice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            cache: "no-store",
+            credentials: "same-origin",
+            body: JSON.stringify({
+                text: value.slice(0, 5000),
+                language: language || getVoiceLanguageCode()
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            let message = "Voice service is unavailable.";
+            try {
+                const data = await response.json();
+                if (data?.error) message = String(data.error);
+            } catch {}
+            throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        if (!blob.size || !String(blob.type || "").toLowerCase().startsWith("audio/")) {
+            throw new Error("Voice service returned invalid audio.");
+        }
+
+        return URL.createObjectURL(blob);
+    } catch (error) {
+        if (error?.name === "AbortError") {
+            throw new Error("Voice generation timed out. Please try again.");
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+function stopVoiceAudio() {
+    if (voiceAudio) {
+        try {
+            voiceAudio.pause();
+            voiceAudio.currentTime = 0;
+        } catch {}
+        if (voiceAudio.src?.startsWith("blob:")) {
+            URL.revokeObjectURL(voiceAudio.src);
+        }
+        voiceAudio = null;
+    }
+    voiceBusy = false;
+}
+
+async function speakText(text, language = getVoiceLanguageCode()) {
+    stopVoiceAudio();
+
+    if (!navigator.onLine) {
+        throw new Error("You're offline. Voice playback needs an internet connection.");
+    }
+
+    voiceBusy = true;
+    setVoiceUi("thinking", "Generating voice reply…");
+
+    try {
+        const audioUrl = await fetchVoiceAudio(text, language);
+        const audio = new Audio(audioUrl);
+        audio.preload = "auto";
+        voiceAudio = audio;
+
+        audio.addEventListener("ended", () => {
+            if (voiceAudio === audio) {
+                URL.revokeObjectURL(audioUrl);
+                voiceAudio = null;
+                voiceBusy = false;
+                if (!speechListening && !isSending) {
+                    setVoiceUi("", "Voice ready");
+                }
+            }
+        }, { once: true });
+
+        audio.addEventListener("error", () => {
+            if (voiceAudio === audio) {
+                URL.revokeObjectURL(audioUrl);
+                voiceAudio = null;
+                voiceBusy = false;
+                setVoiceUi("error", "Could not play the voice reply");
+            }
+        }, { once: true });
+
+        setVoiceUi("speaking", "Dali AI is speaking…");
+        await audio.play();
+        return true;
+    } catch (error) {
+        voiceBusy = false;
+        stopVoiceAudio();
+        setVoiceUi("error", error?.message || "Voice playback failed.");
+        throw error;
+    }
+}
+
+function makeListenButton(text) {
+    const button = document.createElement("button");
+    button.className = "listen-action";
+    button.type = "button";
+    button.textContent = "🔊 Listen";
+    button.addEventListener("click", async () => {
+        if (voiceBusy) {
+            stopVoiceAudio();
+            setVoiceUi("", "Voice ready");
+            button.textContent = "🔊 Listen";
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "⏳ Voice…";
+
+        try {
+            await speakText(text, updateDetectedVoiceLanguage(text));
+        } catch (error) {
+            console.warn("Voice playback failed:", error);
+        } finally {
+            button.disabled = false;
+            button.textContent = "🔊 Listen";
+        }
+    });
+    return button;
+}
+
 function addCopyButtons(message, originalText = "") {
     message.querySelectorAll("pre").forEach(pre => {
         if (
@@ -541,6 +680,11 @@ function addCopyButtons(message, originalText = "") {
     );
 
     actions.appendChild(copyResponse);
+
+    if (originalText && originalText.trim()) {
+        actions.appendChild(makeListenButton(originalText));
+    }
+
     message.appendChild(actions);
 }
 
@@ -1242,11 +1386,24 @@ async function sendMessage() {
 
         loading.remove();
 
-        const reply = data.reply || data.response || data.message || "No response.";
+        const reply = String(
+            data.reply || data.response || data.message || ""
+        ).trim();
+
+        if (!reply) {
+            throw new Error("Dali AI returned an empty response.");
+        }
+
+        const shouldSpeakReply = voiceConversationMode;
+        const replyLanguage = updateDetectedVoiceLanguage(reply);
 
         addMessage(reply, "ai-message");
-        if (voiceConversationMode) {
+
+        if (shouldSpeakReply) {
             voiceConversationMode = false;
+            speakText(reply, replyLanguage).catch(error => {
+                console.warn("Automatic voice reply failed:", error);
+            });
         }
 
         const rememberedUser = sendText
@@ -1276,7 +1433,7 @@ async function sendMessage() {
 
         // Voice status must never remain stuck over the composer after the
         // voice request has been sent or completed.
-        if (!speechListening) {
+        if (!speechListening && !voiceBusy && !voiceAudio) {
             setVoiceUi("", "Voice ready");
         }
 
@@ -1431,6 +1588,7 @@ if (voiceBtn) {
         speechRecognition = new SpeechRecognition();
         speechRecognition.continuous = false;
         speechRecognition.interimResults = true;
+        speechRecognition.maxAlternatives = 1;
         speechRecognition.lang = VOICE_LANGUAGES[detectedVoiceLanguage];
 
         speechRecognition.onstart = () => {
@@ -1463,9 +1621,19 @@ if (voiceBtn) {
         speechRecognition.onerror = event => {
             console.warn("Speech recognition error:", event.error);
             voiceConversationMode = false;
-            setVoiceUi("error", event.error === "not-allowed"
-                ? "Microphone permission was denied"
-                : "Voice input stopped — try again");
+
+            const messages = {
+                "not-allowed": "Microphone permission was denied",
+                "service-not-allowed": "Speech recognition is blocked by this browser",
+                "audio-capture": "No microphone was found",
+                "network": "Speech recognition needs an internet connection",
+                "no-speech": "No speech detected — try again"
+            };
+
+            setVoiceUi(
+                "error",
+                messages[event.error] || "Voice input stopped — try again"
+            );
         };
 
         speechRecognition.onend = () => {
@@ -1487,10 +1655,14 @@ if (voiceBtn) {
             }
 
             try {
+                stopVoiceAudio();
                 speechRecognition.lang = VOICE_LANGUAGES[detectedVoiceLanguage];
                 speechRecognition.start();
             } catch (error) {
                 console.warn("Could not start speech recognition:", error);
+                speechListening = false;
+                voiceConversationMode = false;
+                setVoiceUi("error", "Could not start the microphone. Try again.");
             }
         });
     }
