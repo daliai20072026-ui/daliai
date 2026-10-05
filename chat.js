@@ -380,9 +380,16 @@ function renderMarkdown(text) {
         typeof marked === "undefined" ||
         typeof DOMPurify === "undefined"
     ) {
+        const safeFormulas = protectedMath.formulas.map(formula =>
+            String(formula)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+        );
+
         return restoreMath(
             renderMarkdownFallback(protectedMath.text),
-            protectedMath.formulas
+            safeFormulas
         );
     }
 
