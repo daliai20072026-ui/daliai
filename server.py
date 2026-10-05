@@ -6,6 +6,7 @@ from flask import (
     Response,
 )
 
+from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
@@ -39,6 +40,11 @@ import re
 import base64
 import zipfile
 
+# Load local .env for development. Vercel/production environment variables
+# still take precedence because load_dotenv() does not override existing values.
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
@@ -53,7 +59,6 @@ BACKEND_VERSION = "dali-g4f-gemini-1.9"
 
 app = Flask(__name__)
 
-BASE_DIR = Path(__file__).resolve().parent
 PUBLIC_DIR = BASE_DIR / "public"
 
 
