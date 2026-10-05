@@ -6175,3 +6175,360 @@ button, textarea, input {
         font-size: 92%;
     }
 }
+
+
+/* =========================================================
+   DALI AI — FINAL DISPLAY QUALITY PASS
+   Keep the original design; fix overflow, spacing, mobile
+   keyboard behavior, content rendering and touch targets.
+========================================================= */
+
+html {
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    isolation: isolate;
+}
+
+.chat-container,
+.chat-header,
+.messages,
+.input-area,
+.input-box,
+.sidebar {
+    min-width: 0;
+}
+
+.chat-header {
+    position: relative;
+    z-index: 30;
+}
+
+.messages {
+    position: relative;
+    z-index: 1;
+    overflow-anchor: auto;
+}
+
+.input-area {
+    position: relative;
+    z-index: 40;
+}
+
+.message {
+    width: fit-content;
+    max-width: min(100%, 980px);
+}
+
+.ai-message,
+.user-message {
+    overflow: visible;
+}
+
+.message-content {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    line-break: auto;
+}
+
+.message-content > :first-child {
+    margin-top: 0;
+}
+
+.message-content > :last-child {
+    margin-bottom: 0;
+}
+
+.message-content a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgba(99,230,255,.35);
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+}
+
+.message-content blockquote {
+    margin: 12px 0;
+    padding: 9px 13px;
+    border-left: 3px solid rgba(99,230,255,.45);
+    border-radius: 0 10px 10px 0;
+    background: rgba(99,230,255,.045);
+    color: #b9c4d3;
+}
+
+.message-content hr {
+    margin: 16px 0;
+    border: 0;
+    border-top: 1px solid rgba(255,255,255,.08);
+}
+
+.message-content table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: .94em;
+}
+
+.message-content th,
+.message-content td {
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,.09);
+    text-align: start;
+    vertical-align: top;
+}
+
+.message-content th {
+    background: rgba(255,255,255,.045);
+    color: #eaf2fb;
+    font-weight: 700;
+}
+
+.message-content ul,
+.message-content ol {
+    padding-inline-start: 22px;
+}
+
+.message-content li + li {
+    margin-top: 4px;
+}
+
+.ai-message pre {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    white-space: pre;
+}
+
+.ai-message pre code {
+    white-space: pre;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+.code-wrapper {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.copy-code,
+.copy-action,
+.clear-chat,
+.attach-btn,
+.voice-btn,
+.send-btn,
+.mobile-menu-btn,
+.new-chat {
+    min-height: 42px;
+}
+
+.copy-code,
+.copy-action {
+    touch-action: manipulation;
+}
+
+.image-preview {
+    max-width: 100%;
+    box-sizing: border-box;
+    z-index: 45;
+}
+
+.image-preview img {
+    max-width: min(360px, 78vw);
+    max-height: min(220px, 32vh);
+}
+
+.attachment-menu {
+    z-index: 200;
+    max-height: min(60vh, 430px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.voice-status {
+    z-index: 210;
+    max-width: min(260px, calc(100vw - 24px));
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message-content mjx-container {
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.message-content mjx-container[display="true"] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+}
+
+@media (max-width: 767px) {
+    .message {
+        width: fit-content;
+        max-width: 100%;
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: calc(100% - 2px);
+    }
+
+    .message-content {
+        font-size: 14px;
+        line-height: 1.75;
+    }
+
+    .message-content.rtl {
+        line-height: 1.95;
+    }
+
+    .message-content table {
+        font-size: 13px;
+    }
+
+    .message-content th,
+    .message-content td {
+        padding: 7px 8px;
+    }
+
+    .message-content pre {
+        max-width: 100%;
+    }
+
+    .copy-code {
+        top: 6px;
+        right: 6px;
+        min-height: 34px;
+        padding: 5px 8px;
+    }
+
+    .input-area {
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+
+    .input-box {
+        align-items: flex-end;
+    }
+
+    .input-box textarea {
+        font-size: 16px !important;
+        line-height: 1.45;
+    }
+
+    .attachment-menu {
+        left: 0;
+        max-width: calc(100vw - 24px);
+    }
+
+    .voice-status {
+        right: 0;
+    }
+}
+
+@media (max-width: 430px) {
+    .messages {
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: 100%;
+    }
+
+    .ai-message {
+        padding: 13px 14px;
+    }
+
+    .user-message {
+        padding: 11px 13px;
+    }
+
+    .message-content,
+    .message-content.rtl {
+        font-size: 14px;
+    }
+
+    .input-box {
+        gap: 5px;
+    }
+
+    .attach-btn,
+    .voice-btn,
+    .send-btn {
+        flex: 0 0 42px;
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        min-height: 42px;
+    }
+
+    .voice-label {
+        display: none !important;
+    }
+}
+
+@media (max-width: 360px) {
+    .chat-header h2 {
+        max-width: 30vw;
+    }
+
+    .ai-message,
+    .user-message {
+        border-radius: 14px;
+    }
+
+    .message-content,
+    .message-content.rtl {
+        font-size: 13px;
+    }
+
+    .attach-btn,
+    .voice-btn,
+    .send-btn {
+        flex-basis: 40px;
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+    }
+}
+
+@media (max-width: 767px) and (max-height: 560px) {
+    .chat-header {
+        height: 54px;
+        min-height: 54px;
+    }
+
+    .messages {
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .input-area {
+        padding-top: 5px;
+    }
+
+    .footer-text {
+        display: none;
+    }
+}
+
+@media (min-width: 768px) {
+    .message-content {
+        font-size: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .messages {
+        scroll-behavior: auto;
+    }
+}
