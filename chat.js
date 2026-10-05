@@ -504,86 +504,48 @@ function addCopyButtons(message, originalText = "") {
     message.appendChild(actions);
 }
 
-async function renderMath(element, attempts = 0) {
-    if (!element) return;
-
-    // MathJax v4 loads asynchronously. Wait for both the API and startup
-    // promise so dynamically inserted chat messages are always typeset.
-    if (
-        typeof MathJax === "undefined" ||
-        typeof MathJax.typesetPromise !== "function" ||
-        !MathJax.startup?.promise
-    ) {
-        if (attempts >= 80) {
-            console.warn("MathJax did not become ready; leaving LaTeX source visible.");
-            return;
-        }
-
-        setTimeout(() => renderMath(element, attempts + 1), 150);
+function renderMath(element) {
+    if (!element || typeof renderMathInElement !== "function") {
         return;
     }
 
     try {
-        await MathJax.startup.promise;
-
-        if (typeof MathJax.typesetClear === "function") {
-            MathJax.typesetClear([element]);
-        }
-
-        await new Promise(resolve => requestAnimationFrame(resolve));
-        await MathJax.typesetPromise([element]);
-
-        // If the browser/CDN was still settling, give MathJax one final
-        // chance instead of leaving raw $...$ / (...) visible.
-        if (
-            /(^|[^\\])\$[^\n]+\$/.test(element.textContent) ||
-            element.textContent.includes("\\(") ||
-            element.textContent.includes("\\)")
-        ) {
-            if (attempts < 3) {
-                setTimeout(() => renderMath(element, attempts + 1), 250);
-            }
-        }
+        renderMathInElement(element, {
+            delimiters: [
+                { left: "\\\\[", right: "\\\\]", display: true },
+                { left: "$$", right: "$$", display: true },
+                { left: "\\\\(", right: "\\\\)", display: false },
+                { left: "$", right: "$", display: false }
+            ],
+            throwOnError: false,
+            strict: "ignore",
+            trust: false
+        });
     } catch (error) {
-        console.error("MathJax typesetting failed:", error);
-
-        if (attempts < 6) {
-            setTimeout(() => renderMath(element, attempts + 1), 350);
-        }
+        console.warn("KaTeX rendering failed:", error);
     }
 }
 
 function renderAllMath() {
-    if (typeof MathJax === "undefined") return;
+    if (typeof renderMathInElement !== "function") return;
 
     document.querySelectorAll(".message-content").forEach(element => {
-        if (element.textContent.includes("\\(") ||
-            element.textContent.includes("\\[") ||
-            element.textContent.includes("$") ||
-            /(^|[^\\])\$[^\n]+\$/.test(element.textContent)) {
+        if (
+            element.textContent.includes("\\\\(") ||
+            element.textContent.includes("\\\\)") ||
+            element.textContent.includes("\\\\[") ||
+            element.textContent.includes("\\\\]") ||
+            element.textContent.includes("$")
+        ) {
             renderMath(element);
         }
     });
 }
 
-// Also typeset messages restored from sessionStorage after MathJax finishes
-// loading. This makes old conversations render correctly on refresh.
 window.addEventListener("load", () => {
-    const waitForMathJax = () => {
-        if (
-            typeof MathJax !== "undefined" &&
-            typeof MathJax.typesetPromise === "function"
-        ) {
-            renderAllMath();
-            return;
-        }
-
-        setTimeout(waitForMathJax, 150);
-    };
-
-    waitForMathJax();
+    renderAllMath();
 });
-
+ 
 function parseStoredFile(text) {
     const match = String(text || "").match(
         /^([\s\S]*?)\[DALI_FILE\]\nfilename:\s*(.+?)\n\[FILE_TEXT\]\n[\s\S]*?\n\[DALI_FILE_END\]\s*$/
