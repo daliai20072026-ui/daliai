@@ -25,6 +25,20 @@ let voiceBusy = false;
 let voiceConversationMode = false;
 let speechRecognition = null;
 let speechListening = false;
+const voiceLanguageSelect = document.getElementById("voiceLanguage");
+const VOICE_LANGUAGES = { ar: "ar-TN", fr: "fr-FR", en: "en-US" };
+function getVoiceLanguage() {
+    const saved = localStorage.getItem("dali_voice_language");
+    if (saved && VOICE_LANGUAGES[saved]) return saved;
+    const browser = String(navigator.language || "").toLowerCase();
+    if (browser.startsWith("ar")) return "ar";
+    if (browser.startsWith("fr")) return "fr";
+    return "en";
+}
+
+function getVoiceLanguageCode() {
+    return getVoiceLanguage();
+}
 
 let gradioVoiceClientPromise = null;
 const XTTS_SPACE = "abdelati88/voice-clone";
@@ -1390,7 +1404,15 @@ if (voiceBtn) {
         speechRecognition = new SpeechRecognition();
         speechRecognition.continuous = false;
         speechRecognition.interimResults = true;
-        speechRecognition.lang = "ar-TN";
+        const initialVoiceLanguage = getVoiceLanguage();
+        if (voiceLanguageSelect) {
+            voiceLanguageSelect.value = initialVoiceLanguage;
+            voiceLanguageSelect.addEventListener("change", () => {
+                localStorage.setItem("dali_voice_language", voiceLanguageSelect.value);
+                if (speechRecognition && speechListening) speechRecognition.stop();
+            });
+        }
+        speechRecognition.lang = VOICE_LANGUAGES[initialVoiceLanguage];
 
         speechRecognition.onstart = () => {
             speechListening = true;
@@ -1444,6 +1466,7 @@ if (voiceBtn) {
             }
 
             try {
+                speechRecognition.lang = VOICE_LANGUAGES[getVoiceLanguage()];
                 speechRecognition.start();
             } catch (error) {
                 console.warn("Could not start speech recognition:", error);
