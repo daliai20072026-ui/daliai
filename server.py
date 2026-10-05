@@ -136,13 +136,13 @@ XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
 
 # Hugging Face ZeroGPU XTTS Space (preferred). A public temporary Space is
 # used by default so voice works without an API key or extra server.
-XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "minsus/Voice-Cloning-XTTS-v2").strip()
+XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "minsus/Voice-Cloning-XTTS-v2"
 XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
 XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
     "https://raw.githubusercontent.com/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
 ).strip()
-XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "/voice_clone_synthesis").strip() or "/voice_clone_synthesis"
+XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "").strip() or "/voice_clone_synthesis"
 
 XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
 XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "120"))
