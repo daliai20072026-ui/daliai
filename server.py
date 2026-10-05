@@ -134,14 +134,15 @@ from urllib import error as urllib_error
 XTTS_SERVER_URL = os.getenv("XTTS_SERVER_URL", "").strip().rstrip("/")
 XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
 
-# Hugging Face ZeroGPU XTTS Space (preferred)
-XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip()
+# Hugging Face ZeroGPU XTTS Space (preferred). A public temporary Space is
+# used by default so voice works without an API key or extra server.
+XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "minsus/Voice-Cloning-XTTS-v2").strip()
 XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
 XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
     "https://raw.githubusercontent.com/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
 ).strip()
-XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "/synthesize").strip() or "/synthesize"
+XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "/voice_clone_synthesis").strip() or "/voice_clone_synthesis"
 
 XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
 XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "120"))
@@ -753,7 +754,7 @@ def health():
 @limiter.exempt
 def voice_status():
     return jsonify({
-        "configured": bool(XTTS_SERVER_URL),
+        "configured": bool(XTTS_HF_SPACE or XTTS_SERVER_URL),
         "language": XTTS_LANGUAGE,
         "provider": "huggingface-zerogpu" if XTTS_HF_SPACE else "remote-xtts"
     })
@@ -1105,12 +1106,38 @@ def _synthesize_with_hf_xtts(text):
 
     # The Space accepts the reference audio as a file input. Gradio's
     # handle_file() can upload a URL directly to the Space.
-    result = client.predict(
-        text=text,
-        audio=handle_file(XTTS_REFERENCE_URL),
-        language=XTTS_LANGUAGE,
-        api_name=XTTS_HF_API_NAME
-    )
+    if XTTS_HF_SPACE == "minsus/Voice-Cloning-XTTS-v2":
+        # Temporary zero-config public XTTS Space. It accepts a public
+        # reference-audio URL directly and supports Arabic as "Arabic".
+        result = client.predict(
+            text,
+            XTTS_REFERENCE_URL,
+            None,
+            "Arabic" if XTTS_LANGUAGE == "ar" else XTTS_LANGUAGE,
+            0.75,
+            1.0,
+            True,
+            5.0,
+            1.0,
+            30,
+            50,
+            0.85,
+            True,
+            -45,
+            300,
+            100,
+            "Native XTTS splitting",
+            250,
+            False,
+            api_name=XTTS_HF_API_NAME
+        )
+    else:
+        result = client.predict(
+            text,
+            handle_file(XTTS_REFERENCE_URL),
+            XTTS_LANGUAGE,
+            api_name=XTTS_HF_API_NAME
+        )
 
     return _extract_audio_bytes(result)
 
