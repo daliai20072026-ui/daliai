@@ -500,13 +500,14 @@ function addCopyButtons(message, originalText = "") {
 async function renderMath(element, attempts = 0) {
     if (!element) return;
 
-    // MathJax v4 is loaded asynchronously. Wait for the actual typesetting
-    // API instead of relying on startup.promise being present.
+    // MathJax v4 loads asynchronously. Wait for both the API and startup
+    // promise so dynamically inserted chat messages are always typeset.
     if (
         typeof MathJax === "undefined" ||
-        typeof MathJax.typesetPromise !== "function"
+        typeof MathJax.typesetPromise !== "function" ||
+        !MathJax.startup?.promise
     ) {
-        if (attempts >= 60) {
+        if (attempts >= 80) {
             console.warn("MathJax did not become ready; leaving LaTeX source visible.");
             return;
         }
@@ -516,21 +517,31 @@ async function renderMath(element, attempts = 0) {
     }
 
     try {
-        // MathJax v4 serializes typesetPromise() calls itself. Do not block on
-        // startup.promise here; wait for the typesetting operation directly.
+        await MathJax.startup.promise;
+
         if (typeof MathJax.typesetClear === "function") {
             MathJax.typesetClear([element]);
         }
 
-        // Wait until the browser has committed the newly inserted HTML.
         await new Promise(resolve => requestAnimationFrame(resolve));
-
         await MathJax.typesetPromise([element]);
+
+        // If the browser/CDN was still settling, give MathJax one final
+        // chance instead of leaving raw $...$ / (...) visible.
+        if (
+            /(^|[^\\])\$[^\n]+\$/.test(element.textContent) ||
+            element.textContent.includes("\\(") ||
+            element.textContent.includes("\\)")
+        ) {
+            if (attempts < 3) {
+                setTimeout(() => renderMath(element, attempts + 1), 250);
+            }
+        }
     } catch (error) {
         console.error("MathJax typesetting failed:", error);
 
-        if (attempts < 5) {
-            setTimeout(() => renderMath(element, attempts + 1), 300);
+        if (attempts < 6) {
+            setTimeout(() => renderMath(element, attempts + 1), 350);
         }
     }
 }
@@ -1252,6 +1263,13 @@ async function sendMessage() {
         );
     } finally {
         isSending = false;
+
+        // Voice status must never remain stuck over the composer after the
+        // voice request has been sent or completed.
+        if (!speechListening) {
+            setVoiceUi("", "Voice ready");
+        }
+
         updateConnectionStatus();
         input?.focus();
     }
