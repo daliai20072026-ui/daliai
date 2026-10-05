@@ -6135,54 +6135,51 @@ button, textarea, input {
 
 
 /* =========================================================
-   MATHJAX — readable, responsive equations
+   KATEX — clean math inside RTL messages
 ========================================================= */
 
-.message-content mjx-container {
-    max-width: 100%;
+.message-content .katex {
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    font-size: 1.05em;
+}
+
+.message-content .katex-display {
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    margin: 1rem 0 !important;
+    padding: 0 !important;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 2px 0;
-    -webkit-overflow-scrolling: touch;
-    direction: ltr !important;
-    unicode-bidi: isolate !important;
-    text-align: center;
-}
-
-.message-content mjx-container[display="true"] {
-    display: block;
-    margin: 18px 0 !important;
-    padding: 10px 4px;
-    direction: ltr !important;
-    unicode-bidi: isolate !important;
     text-align: center !important;
+    -webkit-overflow-scrolling: touch;
 }
 
-.message-content mjx-container:not([display="true"]) {
-    display: inline-block;
-    margin: 0 .12em;
-    vertical-align: middle;
+.message-content .katex-display > .katex {
+    white-space: normal;
 }
 
-.message-content mjx-container svg {
-    max-width: none;
+.message-content .katex-error {
+    color: inherit;
 }
 
 @media (max-width: 767px) {
-    .message-content mjx-container[display="true"] {
-        margin: 14px -2px !important;
-        padding: 8px 2px;
+    .message-content .katex {
+        font-size: 1em;
+    }
+
+    .message-content .katex-display {
+        margin: .85rem 0 !important;
+        padding: 0 !important;
         text-align: center !important;
     }
 }
 
 @media (max-width: 380px) {
-    .message-content mjx-container[display="true"] {
-        margin: 12px -4px !important;
-        font-size: 92%;
+    .message-content .katex {
+        font-size: .96em;
     }
 }
-
 
 /* =========================================================
    DALI AI — FINAL DISPLAY QUALITY PASS
