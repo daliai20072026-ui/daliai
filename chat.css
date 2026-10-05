@@ -6132,3 +6132,46 @@ button, textarea, input {
         animation: none !important;
     }
 }
+
+
+/* =========================================================
+   MATHJAX — readable, responsive equations
+========================================================= */
+
+.message-content mjx-container {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 0;
+    -webkit-overflow-scrolling: touch;
+}
+
+.message-content mjx-container[display="true"] {
+    display: block;
+    margin: 18px 0 !important;
+    padding: 10px 4px;
+    text-align: center;
+}
+
+.message-content mjx-container:not([display="true"]) {
+    margin: 0 .12em;
+}
+
+.message-content mjx-container svg {
+    max-width: none;
+}
+
+@media (max-width: 767px) {
+    .message-content mjx-container[display="true"] {
+        margin: 14px -2px !important;
+        padding: 8px 2px;
+        text-align: left;
+    }
+}
+
+@media (max-width: 380px) {
+    .message-content mjx-container[display="true"] {
+        margin: 12px -4px !important;
+        font-size: 92%;
+    }
+}
