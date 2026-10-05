@@ -575,7 +575,6 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
 
         chip.appendChild(icon);
         chip.appendChild(name);
-
         content.appendChild(chip);
     }
 
@@ -599,6 +598,59 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
     messages.scrollTop = messages.scrollHeight;
     return message;
 }
+
+function createLoadingMessage(title, detail) {
+    const welcomeScreen = document.getElementById("welcomeScreen");
+    if (welcomeScreen) {
+        welcomeScreen.remove();
+    }
+
+    const message = document.createElement("div");
+    message.className = "message loading-message";
+    message.setAttribute("role", "status");
+    message.setAttribute("aria-live", "polite");
+
+    message.innerHTML = `
+        <div class="loading-message-inner">
+            <div class="loading-orb" aria-hidden="true">
+                <span class="loading-spinner"></span>
+            </div>
+            <div class="loading-copy">
+                <div class="loading-title">
+                    <span class="loading-title-text"></span>
+                    <span class="loading-dots" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                    </span>
+                </div>
+                <div class="loading-detail"></div>
+            </div>
+        </div>
+    `;
+
+    const titleNode = message.querySelector(".loading-title-text");
+    const detailNode = message.querySelector(".loading-detail");
+
+    if (titleNode) titleNode.textContent = title || "Dali AI is working";
+    if (detailNode) detailNode.textContent = detail || "Please wait…";
+
+    messages.appendChild(message);
+    messages.scrollTop = messages.scrollHeight;
+
+    return message;
+}
+
+function setLoadingState(message, title, detail) {
+    if (!message) return;
+
+    const titleNode = message.querySelector(".loading-title-text");
+    const detailNode = message.querySelector(".loading-detail");
+
+    if (titleNode) titleNode.textContent = title || "Dali AI is working";
+    if (detailNode) detailNode.textContent = detail || "Please wait…";
+
+    messages.scrollTop = messages.scrollHeight;
+}
+
 
 function updateMode(mode) {
     if (!modeBadge) return;
@@ -1047,10 +1099,24 @@ async function sendMessage() {
 
     sendBtn.disabled = true;
 
-    const loading = addMessage(
-        "Dali AI is reading your attachment and thinking...",
-        "ai-message"
+    const loading = createLoadingMessage(
+        imageFile || fileFile ? "Uploading your file…" : "Dali AI is thinking…",
+        imageFile || fileFile
+            ? "Your attachment is being sent securely. Please keep this page open."
+            : "Your message was sent. Dali AI is preparing the answer."
     );
+
+    let loadingStageTimer = null;
+
+    if (imageFile || fileFile) {
+        loadingStageTimer = window.setTimeout(() => {
+            setLoadingState(
+                loading,
+                "Dali AI is reading your file…",
+                "The upload is complete or nearly complete. Dali AI is processing it now."
+            );
+        }, 900);
+    }
 
     try {
         let options;
@@ -1087,6 +1153,19 @@ async function sendMessage() {
 
         const data = await apiRequest("/api/chat", options);
 
+        if (loadingStageTimer) {
+            clearTimeout(loadingStageTimer);
+            loadingStageTimer = null;
+        }
+
+        setLoadingState(
+            loading,
+            "Response received ✓",
+            "Dali AI finished processing. Showing your answer now…"
+        );
+
+        await new Promise(resolve => window.setTimeout(resolve, 180));
+
         loading.remove();
 
         const reply = data.reply || data.response || data.message || "No response.";
@@ -1103,6 +1182,11 @@ async function sendMessage() {
         rememberTurn(rememberedUser, reply);
         updateMode(data.mode || "general");
     } catch (error) {
+        if (loadingStageTimer) {
+            clearTimeout(loadingStageTimer);
+            loadingStageTimer = null;
+        }
+
         loading.remove();
 
         console.error("Dali AI error:", error);
