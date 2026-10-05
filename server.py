@@ -130,8 +130,19 @@ MAX_AI_RESPONSE_CHARS = 30000
 from urllib import request as urllib_request
 from urllib import error as urllib_error
 
+# Legacy/direct XTTS server (kept as a fallback)
 XTTS_SERVER_URL = os.getenv("XTTS_SERVER_URL", "").strip().rstrip("/")
 XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
+
+# Hugging Face ZeroGPU XTTS Space (preferred)
+XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip()
+XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
+XTTS_REFERENCE_URL = os.getenv(
+    "XTTS_REFERENCE_URL",
+    "https://raw.githubusercontent.com/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
+).strip()
+XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "/synthesize").strip() or "/synthesize"
+
 XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
 XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "120"))
 
@@ -744,7 +755,7 @@ def voice_status():
     return jsonify({
         "configured": bool(XTTS_SERVER_URL),
         "language": XTTS_LANGUAGE,
-        "provider": "remote-xtts"
+        "provider": "huggingface-zerogpu" if XTTS_HF_SPACE else "remote-xtts"
     })
 
 
@@ -1030,17 +1041,84 @@ def chat():
 
 
 # =========================================================
-# VOICE ENDPOINT — PROXY TO DEDICATED XTTS SERVER
+# VOICE ENDPOINT — HUGGING FACE ZEROGPU XTTS + LEGACY FALLBACK
 # =========================================================
+def _extract_audio_bytes(result):
+    """Extract audio bytes from a Gradio client result."""
+    candidates = []
+
+    def collect(value):
+        if value is None:
+            return
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                collect(item)
+            return
+        if isinstance(value, dict):
+            for key in ("url", "path", "value"):
+                if key in value:
+                    collect(value[key])
+            return
+        if isinstance(value, str):
+            candidates.append(value)
+
+    collect(result)
+
+    for candidate in candidates:
+        if candidate.startswith(("http://", "https://")):
+            with urllib_request.urlopen(
+                urllib_request.Request(
+                    candidate,
+                    headers={"User-Agent": "DaliAI/1.0"}
+                ),
+                timeout=XTTS_TIMEOUT_SECONDS
+            ) as response:
+                data = response.read()
+            if data:
+                return data, response.headers.get("Content-Type", "audio/wav")
+
+        path = Path(candidate)
+        if path.is_file():
+            data = path.read_bytes()
+            if data:
+                return data, "audio/wav"
+
+    raise RuntimeError("Hugging Face XTTS returned no audio file.")
+
+
+def _synthesize_with_hf_xtts(text):
+    if not XTTS_HF_SPACE:
+        raise RuntimeError("XTTS_HF_SPACE is not configured.")
+
+    try:
+        from gradio_client import Client, handle_file
+    except ImportError as error:
+        raise RuntimeError(
+            "gradio_client is not installed. Add gradio_client to requirements.txt."
+        ) from error
+
+    client_kwargs = {}
+    if XTTS_HF_TOKEN:
+        client_kwargs["hf_token"] = XTTS_HF_TOKEN
+
+    client = Client(XTTS_HF_SPACE, **client_kwargs)
+
+    # The Space accepts the reference audio as a file input. Gradio's
+    # handle_file() can upload a URL directly to the Space.
+    result = client.predict(
+        text=text,
+        audio=handle_file(XTTS_REFERENCE_URL),
+        language=XTTS_LANGUAGE,
+        api_name=XTTS_HF_API_NAME
+    )
+
+    return _extract_audio_bytes(result)
+
+
 @app.route("/api/voice", methods=["POST"])
 @limiter.limit("20/minute")
 def voice():
     try:
-        if not XTTS_SERVER_URL:
-            return jsonify({
-                "error": "XTTS voice server is not configured."
-            }), 503
-
         data = request.get_json(silent=True) or {}
         text = data.get("text", "")
         if not isinstance(text, str):
@@ -1051,6 +1129,26 @@ def voice():
             return jsonify({"error": "Text cannot be empty."}), 400
         if len(text) > 5000:
             text = text[:5000]
+
+        # Preferred path: Hugging Face ZeroGPU.
+        if XTTS_HF_SPACE:
+            audio, content_type = _synthesize_with_hf_xtts(text)
+            return Response(
+                audio,
+                status=200,
+                mimetype=content_type.split(";")[0].strip().lower()
+                    if content_type else "audio/wav",
+                headers={
+                    "Cache-Control": "no-store",
+                    "Content-Disposition": "inline"
+                }
+            )
+
+        # Fallback: existing dedicated XTTS server.
+        if not XTTS_SERVER_URL:
+            return jsonify({
+                "error": "Voice server is not configured. Set XTTS_HF_SPACE to your Hugging Face ZeroGPU Space."
+            }), 503
 
         payload = json.dumps({
             "text": text,
@@ -1098,30 +1196,24 @@ def voice():
         )
 
     except urllib_error.HTTPError as error:
-        app.logger.exception("XTTS server HTTP error")
-        upstream_message = ""
-        try:
-            error_body = error.read(4096).decode("utf-8", errors="replace")
-            parsed = json.loads(error_body)
-            raw = parsed.get("error")
-            if isinstance(raw, str):
-                upstream_message = raw[:300]
-        except Exception:
-            pass
-
+        app.logger.exception("Voice upstream HTTP error")
         return jsonify({
-            "error": upstream_message
-                or f"XTTS server returned HTTP {error.code}."
+            "error": f"Voice service returned HTTP {error.code}."
         }), 502
     except (urllib_error.URLError, TimeoutError):
-        app.logger.exception("XTTS server connection failed")
+        app.logger.exception("Voice upstream connection failed")
         return jsonify({
-            "error": "Could not connect to the XTTS voice server. Check XTTS_SERVER_URL and make sure the XTTS server is publicly reachable."
+            "error": "Could not connect to the voice service."
         }), 502
-    except Exception:
-        app.logger.exception("Voice proxy failed")
+    except Exception as error:
+        app.logger.exception("Voice synthesis failed")
+        message = str(error).strip()
+        if "queue" in message.lower():
+            message = "Voice service is busy. Please try again in a moment."
+        elif not message:
+            message = "Voice cloning server is unavailable."
         return jsonify({
-            "error": "Voice cloning server is unavailable."
+            "error": message[:500]
         }), 503
 
 
