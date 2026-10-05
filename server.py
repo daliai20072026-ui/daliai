@@ -55,7 +55,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-2.0"
+BACKEND_VERSION = "dali-g4f-gemini-2.1"
 
 app = Flask(__name__)
 
@@ -136,7 +136,7 @@ XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
 
 # Hugging Face ZeroGPU XTTS Space (preferred). A public temporary Space is
 # used by default so voice works without an API key or extra server.
-XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "abdelati88/voice-clone"
+XTTS_HF_SPACE = os.getenv("XTTS_HF_SPACE", "").strip() or "redradios/Voice-Clone-Multilingual"
 XTTS_HF_TOKEN = os.getenv("XTTS_HF_TOKEN", "").strip()
 XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
@@ -145,7 +145,7 @@ XTTS_REFERENCE_URL = os.getenv(
 XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "").strip() or "/predict"
 
 XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
-XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "120"))
+XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "180"))
 
 MAX_CHAT_LIST = 100
 MAX_MESSAGES_PER_CHAT_RESPONSE = 200
@@ -1104,11 +1104,12 @@ def _synthesize_with_hf_xtts(text):
 
     client = Client(XTTS_HF_SPACE, **client_kwargs)
 
-    # Arabic XTTS Space: inputs are exactly (text, reference_audio).
-    # The Space forces Arabic output, so no language argument is needed.
+    # Multilingual XTTS Space: inputs are (text, reference_audio, language).
+    # Arabic is explicitly selected so the cloned voice speaks Arabic.
     result = client.predict(
         text,
         handle_file(XTTS_REFERENCE_URL),
+        XTTS_LANGUAGE,
         api_name=XTTS_HF_API_NAME
     )
 
