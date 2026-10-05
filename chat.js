@@ -504,7 +504,36 @@ function addCopyButtons(message, originalText = "") {
     message.appendChild(actions);
 }
 
-async function renderMath(element, attempts = 0) {
+async let mathJaxFallbackLoading = false;
+
+function loadMathJaxFallback() {
+    if (mathJaxFallbackLoading) return;
+    if (typeof MathJax !== "undefined" &&
+        typeof MathJax.typesetPromise === "function") {
+        return;
+    }
+
+    mathJaxFallbackLoading = true;
+
+    const existing = document.querySelector('script[data-dali-mathjax-fallback="true"]');
+    if (existing) return;
+
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.0.0/tex-mml-chtml.js";
+    script.async = true;
+    script.dataset.daliMathjaxFallback = "true";
+    script.onload = () => {
+        mathJaxFallbackLoading = false;
+        window.setTimeout(renderAllMath, 0);
+    };
+    script.onerror = () => {
+        mathJaxFallbackLoading = false;
+        console.warn("MathJax fallback CDN could not be loaded.");
+    };
+    document.head.appendChild(script);
+}
+
+function renderMath(element, attempts = 0) {
     if (!element) return;
 
     // MathJax v4 loads asynchronously. Wait for both the API and startup
@@ -514,7 +543,14 @@ async function renderMath(element, attempts = 0) {
         typeof MathJax.typesetPromise !== "function" ||
         !MathJax.startup?.promise
     ) {
-        if (attempts >= 80) {
+        // If the primary CDN failed or is blocked, load a second CDN after
+        // a short grace period. This prevents raw \\[...\\] / \\(…\\)
+        // from remaining visible on mobile browsers.
+        if (attempts === 20) {
+            loadMathJaxFallback();
+        }
+
+        if (attempts >= 100) {
             console.warn("MathJax did not become ready; leaving LaTeX source visible.");
             return;
         }
