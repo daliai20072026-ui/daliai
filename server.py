@@ -55,7 +55,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-2.1"
+BACKEND_VERSION = "dali-g4f-gemini-2.2-voice-fix"
 
 app = Flask(__name__)
 
@@ -189,10 +189,29 @@ XTTS_REFERENCE_URL = os.getenv(
     "XTTS_REFERENCE_URL",
     "https://media.githubusercontent.com/media/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
 ).strip()
-XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "").strip() or "/predict"
+XTTS_HF_API_NAME = os.getenv("XTTS_HF_API_NAME", "").strip() or "/synthesize"
 
 XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
 XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "180"))
+SUPPORTED_VOICE_LANGUAGES = {
+    "ar": "ar",
+    "fr": "fr",
+    "en": "en",
+}
+
+def normalize_voice_language(value):
+    """Normalize browser BCP-47 voice codes to XTTS language codes."""
+    raw = str(value or XTTS_LANGUAGE or "ar").strip().lower().replace("_", "-")
+
+    if raw.startswith("ar"):
+        return "ar"
+    if raw.startswith("fr"):
+        return "fr"
+    if raw.startswith("en"):
+        return "en"
+
+    return raw if raw in SUPPORTED_VOICE_LANGUAGES else "ar"
+
 
 MAX_CHAT_LIST = 100
 MAX_MESSAGES_PER_CHAT_RESPONSE = 200
@@ -802,8 +821,9 @@ def health():
 def voice_status():
     return jsonify({
         "configured": bool(XTTS_HF_SPACE or XTTS_SERVER_URL),
-        "language": language,
-        "provider": "huggingface-zerogpu" if XTTS_HF_SPACE else "remote-xtts"
+        "language": normalize_voice_language(XTTS_LANGUAGE),
+        "provider": "huggingface-zerogpu" if XTTS_HF_SPACE else "remote-xtts",
+        "api": XTTS_HF_API_NAME if XTTS_HF_SPACE else "remote"
     })
 
 
@@ -1191,6 +1211,7 @@ def voice():
     try:
         data = request.get_json(silent=True) or {}
         text = data.get("text", "")
+        language = normalize_voice_language(data.get("language"))
         if not isinstance(text, str):
             return jsonify({"error": "Invalid text."}), 400
 
