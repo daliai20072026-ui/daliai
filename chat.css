@@ -4476,6 +4476,31 @@ body.offline-mode .attach-btn {
     border-color: rgba(126, 231, 135, .45);
 }
 
+.listen-action {
+    padding: 5px 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #111820;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .18s ease;
+    margin-left: 6px;
+}
+
+.listen-action:hover {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    background: #17202a;
+}
+
+.listen-action:disabled {
+    opacity: .65;
+    cursor: wait;
+}
+
 .copy-code {
     position: absolute;
     top: 8px;
