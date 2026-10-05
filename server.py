@@ -55,7 +55,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-1.9"
+BACKEND_VERSION = "dali-g4f-gemini-2.0"
 
 app = Flask(__name__)
 
@@ -745,7 +745,7 @@ def health():
         "status": "Dali AI backend is running",
         "version": BACKEND_VERSION,
         "g4f": True,
-        "voice_configured": bool(XTTS_SERVER_URL)
+        "voice_configured": bool(XTTS_HF_SPACE or XTTS_SERVER_URL)
     })
 
 
