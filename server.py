@@ -3,6 +3,7 @@ from flask import (
     request,
     jsonify,
     send_from_directory,
+    Response,
 )
 
 from flask_limiter import Limiter
@@ -42,14 +43,6 @@ from pypdf import PdfReader
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pptx import Presentation
-
-# Optional local voice cloning (XTTS v2). The app still works if TTS is unavailable.
-try:
-    import torch
-    from TTS.api import TTS
-except Exception:
-    torch = None
-    TTS = None
 
 
 # =========================================================
@@ -125,25 +118,18 @@ MAX_PROMPT_CHARS = 60000
 MAX_AI_RESPONSE_CHARS = 30000
 
 # =========================================================
-# LOCAL VOICE CLONING / TTS
+# REMOTE XTTS VOICE SERVER
 # =========================================================
-VOICE_REFERENCE = BASE_DIR / "kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
-VOICE_OUTPUT_DIR = Path(os.getenv("DALI_VOICE_OUTPUT_DIR", "/tmp/dali-voice"))
-VOICE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
-_tts_model = None
+# Vercel only proxies voice requests. The heavy XTTS model runs on the
+# dedicated voice server, not inside the Vercel function.
+from urllib import request as urllib_request
+from urllib import error as urllib_error
 
-def get_tts_model():
-    global _tts_model
-    if _tts_model is not None:
-        return _tts_model
-    if TTS is None or torch is None:
-        raise RuntimeError("Local voice cloning is not installed.")
-    if not VOICE_REFERENCE.exists():
-        raise RuntimeError("Voice reference file is missing.")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    _tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
-    return _tts_model
+XTTS_SERVER_URL = os.getenv("XTTS_SERVER_URL", "").strip().rstrip("/")
+XTTS_SERVER_TOKEN = os.getenv("XTTS_SERVER_TOKEN", "").strip()
+XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
+XTTS_TIMEOUT_SECONDS = float(os.getenv("XTTS_TIMEOUT_SECONDS", "120"))
+
 MAX_CHAT_LIST = 100
 MAX_MESSAGES_PER_CHAT_RESPONSE = 200
 MAX_ARCHIVE_FILES = 2000
@@ -1028,43 +1014,87 @@ def chat():
 
 
 # =========================================================
-# LOCAL VOICE CLONING ENDPOINT
+# VOICE ENDPOINT — PROXY TO DEDICATED XTTS SERVER
 # =========================================================
 @app.route("/api/voice", methods=["POST"])
 @limiter.limit("20/minute")
 def voice():
     try:
+        if not XTTS_SERVER_URL:
+            return jsonify({
+                "error": "XTTS voice server is not configured."
+            }), 503
+
         data = request.get_json(silent=True) or {}
         text = data.get("text", "")
         if not isinstance(text, str):
             return jsonify({"error": "Invalid text."}), 400
-        text = re.sub(r"\\s+", " ", text).strip()
+
+        text = re.sub(r"\s+", " ", text).strip()
         if not text:
             return jsonify({"error": "Text cannot be empty."}), 400
         if len(text) > 5000:
             text = text[:5000]
 
-        model = get_tts_model()
-        output_name = f"dali-voice-{os.urandom(12).hex()}.wav"
-        output_path = VOICE_OUTPUT_DIR / output_name
-        model.tts_to_file(
-            text=text,
-            speaker_wav=str(VOICE_REFERENCE),
-            language=XTTS_LANGUAGE,
-            file_path=str(output_path),
-            split_sentences=True
+        payload = json.dumps({
+            "text": text,
+            "language": XTTS_LANGUAGE
+        }).encode("utf-8")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "audio/wav,audio/*"
+        }
+        if XTTS_SERVER_TOKEN:
+            headers["X-API-Key"] = XTTS_SERVER_TOKEN
+
+        upstream_request = urllib_request.Request(
+            XTTS_SERVER_URL,
+            data=payload,
+            headers=headers,
+            method="POST"
         )
-        return send_from_directory(
-            VOICE_OUTPUT_DIR,
-            output_name,
-            mimetype="audio/wav",
-            as_attachment=False,
-            max_age=0
+
+        with urllib_request.urlopen(
+            upstream_request,
+            timeout=XTTS_TIMEOUT_SECONDS
+        ) as upstream:
+            audio = upstream.read()
+            content_type = upstream.headers.get(
+                "Content-Type",
+                "audio/wav"
+            ).split(";")[0].strip().lower()
+
+        if not audio:
+            raise RuntimeError("XTTS server returned empty audio.")
+
+        if not content_type.startswith("audio/"):
+            raise RuntimeError("XTTS server returned an invalid content type.")
+
+        return Response(
+            audio,
+            status=200,
+            mimetype=content_type,
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": "inline"
+            }
         )
-    except Exception:
-        app.logger.exception("Voice cloning failed")
+
+    except urllib_error.HTTPError as error:
+        app.logger.exception("XTTS server HTTP error")
         return jsonify({
-            "error": "Voice cloning is unavailable. Install the local TTS dependencies and model."
+            "error": f"XTTS server returned HTTP {error.code}."
+        }), 502
+    except (urllib_error.URLError, TimeoutError):
+        app.logger.exception("XTTS server connection failed")
+        return jsonify({
+            "error": "Could not connect to the XTTS voice server."
+        }), 502
+    except Exception:
+        app.logger.exception("Voice proxy failed")
+        return jsonify({
+            "error": "Voice cloning server is unavailable."
         }), 503
 
 
