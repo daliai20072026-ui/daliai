@@ -31,8 +31,7 @@ const XTTS_SPACE = "abdelati88/voice-clone";
 const XTTS_REFERENCE_URL =
     "https://media.githubusercontent.com/media/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3";
 
-let gradioVoiceClientPromise = null;
-
+// Legacy Gradio voice client kept unused for compatibility.
 async function getGradioVoiceClient() {
     if (!gradioVoiceClientPromise) {
         gradioVoiceClientPromise = (async () => {
