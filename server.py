@@ -1222,7 +1222,7 @@ def voice():
 
         payload = json.dumps({
             "text": text,
-            "language": XTTS_LANGUAGE
+            "language": language
         }).encode("utf-8")
 
         headers = {
