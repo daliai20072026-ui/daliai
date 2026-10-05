@@ -6144,17 +6144,24 @@ button, textarea, input {
     overflow-y: hidden;
     padding: 2px 0;
     -webkit-overflow-scrolling: touch;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    text-align: center;
 }
 
 .message-content mjx-container[display="true"] {
     display: block;
     margin: 18px 0 !important;
     padding: 10px 4px;
-    text-align: center;
+    direction: ltr !important;
+    unicode-bidi: isolate !important;
+    text-align: center !important;
 }
 
 .message-content mjx-container:not([display="true"]) {
+    display: inline-block;
     margin: 0 .12em;
+    vertical-align: middle;
 }
 
 .message-content mjx-container svg {
@@ -6165,7 +6172,7 @@ button, textarea, input {
     .message-content mjx-container[display="true"] {
         margin: 14px -2px !important;
         padding: 8px 2px;
-        text-align: left;
+        text-align: center !important;
     }
 }
 
