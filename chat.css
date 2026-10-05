@@ -4738,41 +4738,6 @@ body {
    VOICE CHAT — CLEAR RECORDING UX
 ========================================================= */
 
-.voice-language {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 42px;
-    padding: 0 10px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: rgba(255,255,255,.035);
-    color: var(--text);
-}
-
-.voice-language .ui-icon {
-    font-size: 14px;
-    opacity: .7;
-}
-
-.voice-language select {
-    appearance: none;
-    border: 0;
-    outline: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    max-width: 88px;
-}
-
-.voice-language select option {
-    background: #0b1018;
-    color: #fff;
-}
-
 .voice-control {
     position: relative;
     flex: 0 0 auto;
@@ -6727,4 +6692,92 @@ body {
     .voice-status {
         max-width: calc(100vw - 82px);
     }
+}
+
+
+/* FINAL ANDROID + iPHONE RESPONSIVE PASS */
+html, body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+body {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+}
+.chat-container {
+    width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    min-height: 100dvh;
+}
+button, textarea, input, select {
+    touch-action: manipulation;
+}
+@supports (-webkit-touch-callout: none) {
+    .chat-container { min-height: -webkit-fill-available; }
+    .input-area { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    .input-box textarea { font-size: 16px !important; }
+}
+@media (max-width: 767px) {
+    .chat-container { height: 100dvh; min-height: 100dvh; }
+    .chat-header {
+        flex: 0 0 auto;
+        min-height: 54px;
+        padding-top: env(safe-area-inset-top);
+        box-sizing: content-box;
+    }
+    .messages {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    .message, .ai-message, .user-message, .message-content {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .message-content { overflow-wrap: anywhere; word-break: break-word; }
+    .input-area {
+        width: 100%;
+        box-sizing: border-box;
+        padding-left: max(7px, env(safe-area-inset-left));
+        padding-right: max(7px, env(safe-area-inset-right));
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+    .input-box { width: 100%; min-width: 0; max-width: none; box-sizing: border-box; }
+    .input-box textarea { min-width: 0; width: 100%; font-size: 16px !important; }
+    .attach-btn, .voice-btn, .send-btn {
+        flex: 0 0 42px; width: 42px; min-width: 42px; height: 42px; min-height: 42px;
+    }
+    .voice-status { max-width: calc(100vw - 90px); right: 0; }
+    .attachment-menu { max-width: calc(100vw - 20px); max-height: 58dvh; }
+    .message-content img, .message-image { max-width: 100%; height: auto; }
+    .ai-message pre { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 430px) {
+    .chat-header h2 { max-width: 38vw; }
+    .messages { padding-top: 12px; padding-bottom: 10px; }
+    .ai-message { padding: 13px 14px; }
+    .user-message { padding: 10px 12px; }
+    .message-content, .message-content.rtl { font-size: 14px; }
+}
+@media (max-width: 360px) {
+    .chat-header h2 { max-width: 31vw; }
+    .message-content, .message-content.rtl { font-size: 13px; }
+    .attach-btn, .voice-btn, .send-btn {
+        flex-basis: 40px; width: 40px; min-width: 40px; height: 40px; min-height: 40px;
+    }
+}
+@media (max-width: 767px) and (max-height: 520px) {
+    .chat-header { min-height: 50px; }
+    .messages { padding-top: 8px; padding-bottom: 8px; }
+    .input-area { padding-top: 4px; }
+    .footer-text { display: none; }
 }
