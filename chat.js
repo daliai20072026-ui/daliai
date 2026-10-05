@@ -26,6 +26,88 @@ let voiceConversationMode = false;
 let speechRecognition = null;
 let speechListening = false;
 
+let gradioVoiceClientPromise = null;
+const XTTS_SPACE = "abdelati88/voice-clone";
+const XTTS_REFERENCE_URL =
+    "https://media.githubusercontent.com/media/daliai20072026-ui/daliai/main/kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3";
+
+async function getGradioVoiceClient() {
+    if (!gradioVoiceClientPromise) {
+        gradioVoiceClientPromise = (async () => {
+            const { Client } = await import(
+                "https://cdn.jsdelivr.net/npm/@gradio/client/+esm"
+            );
+            const client = await Client.connect(XTTS_SPACE);
+            return client;
+        })();
+    }
+
+    return gradioVoiceClientPromise;
+}
+
+async function getVoiceReferenceBlob() {
+    const response = await fetch(XTTS_REFERENCE_URL, {
+        cache: "force-cache",
+        mode: "cors"
+    });
+
+    if (!response.ok) {
+        throw new Error(
+            "Could not load the voice reference from GitHub (HTTP " +
+            response.status +
+            ")."
+        );
+    }
+
+    const blob = await response.blob();
+
+    if (!blob.size) {
+        throw new Error("The voice reference file is empty.");
+    }
+
+    return new File([blob], "dali-reference.mp3", {
+        type: blob.type || "audio/mpeg"
+    });
+}
+
+async function getAudioBlobFromGradioResult(result) {
+    const output = result?.data?.[0];
+
+    if (!output) {
+        throw new Error("The voice service returned no audio.");
+    }
+
+    const url =
+        typeof output === "string"
+            ? output
+            : output.url || output.path || output.data;
+
+    if (!url || typeof url !== "string") {
+        throw new Error("The voice service returned an invalid audio file.");
+    }
+
+    if (url.startsWith("data:")) {
+        const response = await fetch(url);
+        return response.blob();
+    }
+
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(
+                "Could not download the generated voice (HTTP " +
+                response.status +
+                ")."
+            );
+        }
+
+        return response.blob();
+    }
+
+    throw new Error("The voice service returned an unusable audio path.");
+}
+
 async function speakDali(text) {
     if (!text || voiceBusy) return;
 
@@ -37,54 +119,24 @@ async function speakDali(text) {
     }
 
     try {
-        // /api/voice returns audio on success, not JSON.
-        // Keep it separate from apiRequest(), which is intentionally JSON-only.
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 180000);
+        // Direct browser -> Hugging Face voice cloning.
+        // No Dali/Vercel voice server is used here.
+        const [client, referenceAudio] = await Promise.all([
+            getGradioVoiceClient(),
+            getVoiceReferenceBlob()
+        ]);
 
-        let response;
-        try {
-            response = await fetch(API_BASE + "/api/voice", {
-                method: "POST",
-                cache: "no-store",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "audio/wav,audio/*"
-                },
-                body: JSON.stringify({text}),
-                signal: controller.signal
-            });
-        } finally {
-            clearTimeout(timeoutId);
-        }
+        setVoiceBusyState("thinking", "Creating your voice…");
 
-        if (!response.ok) {
-            let message = "Voice server request failed (HTTP " + response.status + ").";
-            if (response.status === 401 && /protected deployment/i.test(response.statusText || "")) {
-                message = "This Vercel deployment is protected. Open the public Production URL instead of the deployment preview URL.";
-            }
-            try {
-                const data = await response.json();
-                if (data?.error) {
-                    message = typeof data.error === "string"
-                        ? data.error
-                        : JSON.stringify(data.error);
-                }
-            } catch {
-                // Keep the HTTP fallback message when the error body is not JSON.
-            }
-            throw new Error(message);
-        }
+        const result = await client.predict("/predict", [
+            text,
+            referenceAudio
+        ]);
 
-        const contentType = (response.headers.get("content-type") || "").toLowerCase();
-        if (!contentType.startsWith("audio/")) {
-            throw new Error("Voice server returned an invalid audio response.");
-        }
+        const blob = await getAudioBlobFromGradioResult(result);
 
-        const blob = await response.blob();
         if (!blob.size) {
-            throw new Error("Voice server returned empty audio.");
+            throw new Error("The voice service returned empty audio.");
         }
 
         if (voiceAudio) {
@@ -99,11 +151,23 @@ async function speakDali(text) {
         await voiceAudio.play();
     } catch (error) {
         console.error("Voice cloning error:", error);
-        const message = error?.message || String(error) || "Unknown voice error.";
+
+        // Allow a later retry if the public Space temporarily fails.
+        gradioVoiceClientPromise = null;
+
+        const message =
+            error?.message ||
+            String(error) ||
+            "Unknown voice error.";
+
         addMessage("🔊 Voice error: " + message, "ai-message");
     } finally {
         voiceBusy = false;
-        if (!speechListening) setVoiceBusyState("", "Voice ready");
+
+        if (!speechListening) {
+            setVoiceBusyState("", "Voice ready");
+        }
+
         if (voiceBtn) {
             voiceBtn.classList.remove("voice-loading");
             voiceBtn.setAttribute("aria-busy", "false");
