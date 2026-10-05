@@ -25,19 +25,45 @@ let voiceBusy = false;
 let voiceConversationMode = false;
 let speechRecognition = null;
 let speechListening = false;
-const voiceLanguageSelect = document.getElementById("voiceLanguage");
 const VOICE_LANGUAGES = { ar: "ar-TN", fr: "fr-FR", en: "en-US" };
-function getVoiceLanguage() {
-    const saved = localStorage.getItem("dali_voice_language");
-    if (saved && VOICE_LANGUAGES[saved]) return saved;
+
+function getInitialVoiceLanguage() {
     const browser = String(navigator.language || "").toLowerCase();
     if (browser.startsWith("ar")) return "ar";
     if (browser.startsWith("fr")) return "fr";
-    return "en";
+    if (browser.startsWith("en")) return "en";
+    return "ar";
+}
+
+let detectedVoiceLanguage = getInitialVoiceLanguage();
+try {
+    const saved = sessionStorage.getItem("dali_voice_language");
+    if (VOICE_LANGUAGES[saved]) detectedVoiceLanguage = saved;
+} catch {}
+
+function detectVoiceLanguage(text) {
+    const value = String(text || "").trim();
+    if (!value) return detectedVoiceLanguage;
+    if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(value)) return "ar";
+
+    const words = new Set(value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z]+/));
+    const fr = ["bonjour","merci","avec","pour","dans","une","des","est","sont","vous","nous","je","tu","que","qui","comment","pourquoi","aide"];
+    const en = ["hello","thanks","please","with","from","this","that","what","where","when","why","how","can","could","would","help","explain","write","fix"];
+    const frScore = fr.filter(word => words.has(word)).length;
+    const enScore = en.filter(word => words.has(word)).length;
+    if (frScore > enScore && frScore > 0) return "fr";
+    if (enScore > frScore && enScore > 0) return "en";
+    return detectedVoiceLanguage;
+}
+
+function updateDetectedVoiceLanguage(text) {
+    detectedVoiceLanguage = detectVoiceLanguage(text);
+    try { sessionStorage.setItem("dali_voice_language", detectedVoiceLanguage); } catch {}
+    return detectedVoiceLanguage;
 }
 
 function getVoiceLanguageCode() {
-    return getVoiceLanguage();
+    return detectedVoiceLanguage;
 }
 
 let gradioVoiceClientPromise = null;
@@ -1186,7 +1212,8 @@ async function sendMessage() {
         } else {
             const body = {
                 message: sendText,
-                history: contextBeforeTurn
+                history: contextBeforeTurn,
+                ...(voiceConversationMode ? { voice_language: getVoiceLanguageCode() } : {})
             };
 
             options = {
@@ -1404,15 +1431,7 @@ if (voiceBtn) {
         speechRecognition = new SpeechRecognition();
         speechRecognition.continuous = false;
         speechRecognition.interimResults = true;
-        const initialVoiceLanguage = getVoiceLanguage();
-        if (voiceLanguageSelect) {
-            voiceLanguageSelect.value = initialVoiceLanguage;
-            voiceLanguageSelect.addEventListener("change", () => {
-                localStorage.setItem("dali_voice_language", voiceLanguageSelect.value);
-                if (speechRecognition && speechListening) speechRecognition.stop();
-            });
-        }
-        speechRecognition.lang = VOICE_LANGUAGES[initialVoiceLanguage];
+        speechRecognition.lang = VOICE_LANGUAGES[detectedVoiceLanguage];
 
         speechRecognition.onstart = () => {
             speechListening = true;
@@ -1434,7 +1453,9 @@ if (voiceBtn) {
 
             const finalResult = event.results?.[event.results.length - 1];
             if (finalResult?.isFinal) {
-                setVoiceUi("thinking", "Sending your voice message…");
+                const language = updateDetectedVoiceLanguage(transcript);
+                speechRecognition.lang = VOICE_LANGUAGES[language];
+                setVoiceUi("thinking", "Understanding your language…");
                 sendMessage();
             }
         };
@@ -1466,7 +1487,7 @@ if (voiceBtn) {
             }
 
             try {
-                speechRecognition.lang = VOICE_LANGUAGES[getVoiceLanguage()];
+                speechRecognition.lang = VOICE_LANGUAGES[detectedVoiceLanguage];
                 speechRecognition.start();
             } catch (error) {
                 console.warn("Could not start speech recognition:", error);
