@@ -22,6 +22,9 @@ const statusText = document.getElementById("statusText");
 const voiceBtn = document.getElementById("voiceBtn");
 let voiceAudio = null;
 let voiceBusy = false;
+let voiceConversationMode = false;
+let speechRecognition = null;
+let speechListening = false;
 
 async function speakDali(text) {
     if (!text || voiceBusy) return;
@@ -1022,6 +1025,11 @@ async function sendMessage() {
 
         addMessage(reply, "ai-message");
 
+        if (voiceConversationMode) {
+            voiceConversationMode = false;
+            await speakDali(reply);
+        }
+
         const rememberedUser = sendText
             || (imageFile ? "[Image attached]" : "")
             || (fileFile ? "[File attached: " + fileFile.name + "]" : "");
@@ -1155,10 +1163,54 @@ updateConnectionStatus();
     }
 })();
 if (voiceBtn) {
-    voiceBtn.addEventListener("click", () => {
-        const lastAssistant = [...document.querySelectorAll(".message.ai-message")].pop();
-        if (!lastAssistant) return;
-        const speakTarget = lastAssistant.querySelector(".message-content");
-        if (speakTarget) speakDali(speakTarget.innerText || "");
-    });
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        voiceBtn.title = "Voice input is not supported by this browser";
+        voiceBtn.setAttribute("aria-label", "Voice input is not supported by this browser");
+    } else {
+        speechRecognition = new SpeechRecognition();
+        speechRecognition.continuous = false;
+        speechRecognition.interimResults = false;
+        speechRecognition.lang = "ar-TN";
+
+        speechRecognition.onstart = () => {
+            speechListening = true;
+            voiceConversationMode = true;
+            voiceBtn.classList.add("voice-listening");
+            voiceBtn.querySelector(".voice-coming-soon")?.replaceChildren(
+                document.createTextNode("Listening…")
+            );
+        };
+
+        speechRecognition.onresult = event => {
+            const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
+            if (!transcript || !input) return;
+            input.value = transcript;
+            input.dispatchEvent(new Event("input", {bubbles: true}));
+            sendMessage();
+        };
+
+        speechRecognition.onerror = event => {
+            console.warn("Speech recognition error:", event.error);
+            voiceConversationMode = false;
+        };
+
+        speechRecognition.onend = () => {
+            speechListening = false;
+            voiceBtn.classList.remove("voice-listening");
+            voiceBtn.querySelector(".voice-coming-soon")?.replaceChildren(
+                document.createTextNode("Voice")
+            );
+        };
+
+        voiceBtn.addEventListener("click", () => {
+            if (voiceBusy || isSending || speechListening) return;
+            try {
+                speechRecognition.start();
+            } catch (error) {
+                console.warn("Could not start speech recognition:", error);
+            }
+        });
+    }
 }
