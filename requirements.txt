@@ -5,3 +5,4 @@ pypdf
 python-docx
 openpyxl
 python-pptx
+python-dotenv
