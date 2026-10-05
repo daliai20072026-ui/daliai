@@ -6532,3 +6532,160 @@ body {
         scroll-behavior: auto;
     }
 }
+
+
+/* =========================================================
+   FINAL MOBILE DISPLAY FIXES
+   Preserve the original Dali AI design.
+========================================================= */
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.chat-container {
+    min-width: 0;
+    width: 100%;
+}
+
+.messages {
+    min-width: 0;
+    width: 100%;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+}
+
+.message {
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.ai-message,
+.user-message {
+    box-sizing: border-box;
+    min-width: 0;
+}
+
+.message-content {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.message-content.rtl {
+    unicode-bidi: plaintext;
+}
+
+.message-content.rtl p,
+.message-content.rtl li,
+.message-content.rtl blockquote,
+.message-content.rtl td,
+.message-content.rtl th {
+    unicode-bidi: plaintext;
+}
+
+.voice-control {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.voice-status {
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: min(245px, calc(100vw - 24px));
+    padding: 8px 11px;
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.message-content mjx-container {
+    max-inline-size: 100%;
+}
+
+.message-content mjx-container[display="true"] {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    text-align: center;
+    scrollbar-width: thin;
+}
+
+@media (max-width: 767px) {
+    .messages {
+        padding-left: max(8px, env(safe-area-inset-left));
+        padding-right: max(8px, env(safe-area-inset-right));
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: 100%;
+    }
+
+    .message-content {
+        font-size: 14px;
+        line-height: 1.72;
+    }
+
+    .message-content.rtl {
+        line-height: 1.92;
+    }
+
+    .input-area {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .input-box {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
+    }
+
+    .voice-status {
+        right: 0;
+        bottom: calc(100% + 8px);
+    }
+}
+
+@media (max-width: 430px) {
+    .message-content,
+    .message-content.rtl {
+        font-size: 14px;
+    }
+
+    .ai-message {
+        padding: 13px 14px;
+    }
+
+    .user-message {
+        padding: 10px 12px;
+    }
+
+    .message-content mjx-container[display="true"] {
+        text-align: start;
+        margin-inline: -2px !important;
+    }
+
+    .voice-status {
+        max-width: calc(100vw - 92px);
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 360px) {
+    .message-content,
+    .message-content.rtl {
+        font-size: 13px;
+    }
+
+    .voice-status {
+        max-width: calc(100vw - 82px);
+    }
+}
