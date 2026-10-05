@@ -1,10 +1,10 @@
-const CACHE_NAME = "dali-ai-v27";
+const CACHE_NAME = "dali-ai-v28";
 const APP_SHELL = [
     "./",
     "./index.html",
     "./chat.html",
     "./chat.css?v=21",
-    "./chat.js?v=42",
+    "./chat.js?v=43",
     "./style.css",
     "./Features.html",
     "./download.html",
