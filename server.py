@@ -802,7 +802,7 @@ def health():
 def voice_status():
     return jsonify({
         "configured": bool(XTTS_HF_SPACE or XTTS_SERVER_URL),
-        "language": XTTS_LANGUAGE,
+        "language": language,
         "provider": "huggingface-zerogpu" if XTTS_HF_SPACE else "remote-xtts"
     })
 
@@ -1156,7 +1156,7 @@ def _extract_audio_bytes(result):
     raise RuntimeError("Hugging Face XTTS returned no audio file.")
 
 
-def _synthesize_with_hf_xtts(text):
+def _synthesize_with_hf_xtts(text, language):
     if not XTTS_HF_SPACE:
         raise RuntimeError("XTTS_HF_SPACE is not configured.")
 
@@ -1178,7 +1178,7 @@ def _synthesize_with_hf_xtts(text):
     result = client.predict(
         text,
         handle_file(XTTS_REFERENCE_URL),
-        XTTS_LANGUAGE,
+        language,
         api_name=XTTS_HF_API_NAME
     )
 
@@ -1202,7 +1202,7 @@ def voice():
 
         # Preferred path: Hugging Face ZeroGPU.
         if XTTS_HF_SPACE:
-            audio, content_type = _synthesize_with_hf_xtts(text)
+            audio, content_type = _synthesize_with_hf_xtts(text, language)
             return Response(
                 audio,
                 status=200,
