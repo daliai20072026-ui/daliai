@@ -28,27 +28,81 @@ let speechListening = false;
 
 async function speakDali(text) {
     if (!text || voiceBusy) return;
+
     voiceBusy = true;
-    if (voiceBtn) voiceBtn.classList.add("voice-loading");
+    if (voiceBtn) {
+        voiceBtn.classList.add("voice-loading");
+        voiceBtn.setAttribute("aria-busy", "true");
+    }
+
     try {
-        const response = await apiRequest("/api/voice", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({text})
-        });
+        // /api/voice returns audio on success, not JSON.
+        // Keep it separate from apiRequest(), which is intentionally JSON-only.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 180000);
+
+        let response;
+        try {
+            response = await fetch(API_BASE + "/api/voice", {
+                method: "POST",
+                cache: "no-store",
+                credentials: "omit",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "audio/wav,audio/*"
+                },
+                body: JSON.stringify({text}),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+            let message = "Voice server request failed (HTTP " + response.status + ").";
+            try {
+                const data = await response.json();
+                if (data?.error) {
+                    message = typeof data.error === "string"
+                        ? data.error
+                        : JSON.stringify(data.error);
+                }
+            } catch {
+                // Keep the HTTP fallback message when the error body is not JSON.
+            }
+            throw new Error(message);
+        }
+
+        const contentType = (response.headers.get("content-type") || "").toLowerCase();
+        if (!contentType.startsWith("audio/")) {
+            throw new Error("Voice server returned an invalid audio response.");
+        }
+
         const blob = await response.blob();
+        if (!blob.size) {
+            throw new Error("Voice server returned empty audio.");
+        }
+
         if (voiceAudio) {
             voiceAudio.pause();
-            URL.revokeObjectURL(voiceAudio.src);
+            if (voiceAudio.src.startsWith("blob:")) {
+                URL.revokeObjectURL(voiceAudio.src);
+            }
         }
+
         voiceAudio = new Audio(URL.createObjectURL(blob));
+        voiceAudio.preload = "auto";
         await voiceAudio.play();
     } catch (error) {
         console.error("Voice cloning error:", error);
-        addMessage("Voice is not available yet. Make sure the local XTTS model is installed on the server.", "ai-message");
+        const message = error?.message || String(error) || "Unknown voice error.";
+        addMessage("🔊 Voice error: " + message, "ai-message");
     } finally {
         voiceBusy = false;
-        if (voiceBtn) voiceBtn.classList.remove("voice-loading");
+        if (voiceBtn) {
+            voiceBtn.classList.remove("voice-loading");
+            voiceBtn.setAttribute("aria-busy", "false");
+        }
     }
 }
 
@@ -132,11 +186,15 @@ async function apiRequest(path, options = {}) {
     const data = await readApiResponse(response);
 
     if (!response.ok) {
-        throw new Error(
-            data.error ||
-            data.details ||
-            ("Request failed with HTTP " + response.status)
-        );
+        const rawError = data.error ?? data.details;
+        const message =
+            typeof rawError === "string"
+                ? rawError
+                : rawError && typeof rawError === "object"
+                    ? (rawError.message || rawError.error || JSON.stringify(rawError))
+                    : ("Request failed with HTTP " + response.status);
+
+        throw new Error(message);
     }
 
     return data;
