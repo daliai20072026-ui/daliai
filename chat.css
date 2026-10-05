@@ -5606,3 +5606,33 @@ button, textarea, input {
         transition-duration: .001ms !important;
     }
 }
+
+
+/* Direct cloned-voice action */
+.message-speak-btn {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: rgba(255, 255, 255, 0.055);
+    color: rgba(255, 255, 255, 0.88);
+    border-radius: 999px;
+    padding: 7px 12px;
+    margin-top: 10px;
+    font: 600 12px/1.1 Inter, Cairo, sans-serif;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.message-speak-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.message-speak-btn:active {
+    transform: translateY(0);
+}
+
+.message-speak-btn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
