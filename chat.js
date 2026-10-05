@@ -101,49 +101,23 @@ async function speakDali(text) {
     }
 
     try {
-        // First try the cloned voice.
-        try {
-            const [client, referenceAudio] = await Promise.all([
-                getGradioVoiceClient(),
-                getVoiceReferenceBlob()
-            ]);
-
-            setVoiceBusyState("thinking", "Creating your voice…");
-
-            const result = await client.predict("/predict", [
-                text,
-                referenceAudio
-            ]);
-
-            const blob = await getAudioBlobFromGradioResult(result);
-
-            if (!blob.size) throw new Error("Empty cloned audio.");
-
-            if (voiceAudio) {
-                voiceAudio.pause();
-                if (voiceAudio.src.startsWith("blob:")) {
-                    URL.revokeObjectURL(voiceAudio.src);
-                }
-            }
-
-            voiceAudio = new Audio(URL.createObjectURL(blob));
-            voiceAudio.preload = "auto";
-            await voiceAudio.play();
-            return;
-        } catch (cloneError) {
-            console.warn("Cloned voice unavailable; using browser voice:", cloneError);
-            gradioVoiceClientPromise = null;
-        }
-
-        // Never leave the user with a broken Voice button.
-        setVoiceBusyState("speaking", "Dali AI is speaking…");
+        // Keep the chat voice stable: use the browser directly.
+        // The public Gradio Space is currently failing upstream.
         await speakWithBrowserVoice(text);
     } catch (error) {
         console.error("Voice playback error:", error);
-        addMessage("🔊 Voice could not be played: " + (error?.message || "Unknown error."), "ai-message");
+        addMessage(
+            "🔊 Voice could not be played: " +
+                (error?.message || "Unknown error."),
+            "ai-message"
+        );
     } finally {
         voiceBusy = false;
-        if (!speechListening) setVoiceBusyState("", "Voice ready");
+
+        if (!speechListening) {
+            setVoiceBusyState("", "Voice ready");
+        }
+
         if (voiceBtn) {
             voiceBtn.classList.remove("voice-loading");
             voiceBtn.setAttribute("aria-busy", "false");
