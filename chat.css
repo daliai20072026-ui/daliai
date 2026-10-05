@@ -6781,3 +6781,284 @@ button, textarea, input, select {
     .input-area { padding-top: 4px; }
     .footer-text { display: none; }
 }
+
+
+/* =========================================================
+   DALI AI — MOBILE HARDENING
+   Keeps the existing design while making the chat reliable
+   on Android + iPhone, including narrow screens and keyboards.
+========================================================= */
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    overscroll-behavior: none;
+}
+
+.chat-container,
+.messages,
+.input-area,
+.input-box,
+.message,
+.message-content {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.chat-header {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+}
+
+.messages {
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.message-content pre,
+.message-content table,
+.ai-message pre {
+    max-width: 100%;
+}
+
+.message-content pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.image-preview {
+    width: auto;
+    max-width: min(950px, 100%);
+    overflow: hidden;
+}
+
+.input-area {
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+.input-box {
+    width: 100%;
+}
+
+@media (max-width: 767px) {
+    .chat-header {
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
+    }
+
+    .chat-title {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .header-actions {
+        flex: 0 0 auto;
+    }
+
+    .clear-chat {
+        min-height: 40px;
+        min-width: 40px;
+    }
+
+    .messages {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-bottom: 14px;
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: min(100%, 94vw);
+    }
+
+    .welcome-screen {
+        width: 100%;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    .quick-prompts {
+        width: 100%;
+    }
+
+    .prompt-card {
+        width: 100%;
+        min-width: 0;
+        min-height: 68px;
+    }
+
+    .input-area {
+        padding-top: 7px;
+    }
+
+    .input-box {
+        min-height: 56px;
+        padding: 7px;
+    }
+
+    .input-box textarea {
+        min-width: 0;
+        width: 100%;
+        font-size: 16px;
+        line-height: 1.45;
+    }
+
+    .attach-btn,
+    .send-btn {
+        flex: 0 0 42px;
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        min-height: 42px;
+    }
+
+    .attachment-menu {
+        left: 0;
+        right: auto;
+        width: min(245px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+    }
+
+    .attachment-option {
+        min-height: 48px;
+    }
+
+    .image-preview {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .file-preview-info {
+        max-width: calc(100vw - 80px);
+    }
+}
+
+@media (max-width: 479px) {
+    .chat-header {
+        height: 56px;
+        min-height: 56px;
+    }
+
+    .mobile-menu-btn {
+        width: 34px;
+        min-width: 34px;
+        height: 34px;
+    }
+
+    .title-logo {
+        width: 30px;
+        height: 30px;
+    }
+
+    .title-logo img {
+        width: 19px;
+        height: 19px;
+    }
+
+    .chat-header h2 {
+        font-size: 13px;
+        max-width: 130px;
+    }
+
+    .messages {
+        padding: 12px 8px 10px;
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: 96%;
+        font-size: 13px;
+    }
+
+    .ai-message {
+        padding: 12px;
+    }
+
+    .user-message {
+        padding: 10px 12px;
+    }
+
+    .input-area {
+        padding-top: 6px;
+    }
+
+    .input-box {
+        min-height: 54px;
+        padding: 6px;
+    }
+
+    .input-box textarea {
+        min-height: 42px;
+        height: 42px;
+        max-height: 140px;
+        font-size: 16px;
+        padding: 10px 8px;
+    }
+
+    .attach-btn,
+    .send-btn {
+        flex-basis: 40px;
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        min-height: 40px;
+    }
+}
+
+@media (max-width: 359px) {
+    .chat-header {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .chat-header h2 {
+        max-width: 100px;
+    }
+
+    .messages {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .ai-message,
+    .user-message {
+        max-width: 98%;
+    }
+
+    .input-box {
+        gap: 4px;
+    }
+
+    .attach-btn,
+    .send-btn {
+        flex-basis: 38px;
+        width: 38px;
+        min-width: 38px;
+        height: 38px;
+        min-height: 38px;
+    }
+}
+
+@media (max-width: 767px) and (orientation: landscape) {
+    .chat-header {
+        height: 52px;
+        min-height: 52px;
+    }
+
+    .messages {
+        padding-top: 8px;
+    }
+
+    .input-box textarea {
+        max-height: 90px;
+    }
+}
