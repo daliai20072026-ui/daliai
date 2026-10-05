@@ -498,8 +498,13 @@ function addCopyButtons(message, originalText = "") {
 }
 
 async function renderMath(element, attempts = 0) {
+    if (!element) return;
+
     if (typeof MathJax === "undefined") {
-        if (attempts >= 25) return;
+        if (attempts >= 50) {
+            console.warn("MathJax did not load; leaving LaTeX source visible.");
+            return;
+        }
         setTimeout(() => renderMath(element, attempts + 1), 200);
         return;
     }
@@ -509,14 +514,19 @@ async function renderMath(element, attempts = 0) {
             await MathJax.startup.promise;
         }
 
-        // Clear MathJax's previous typesetting state before re-rendering.
         if (MathJax.typesetClear) {
             MathJax.typesetClear([element]);
         }
 
+        // Give the browser one paint cycle after innerHTML is inserted.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+
         await MathJax.typesetPromise([element]);
     } catch (error) {
         console.error("MathJax error:", error);
+        if (attempts < 3) {
+            setTimeout(() => renderMath(element, attempts + 1), 250);
+        }
     }
 }
 
