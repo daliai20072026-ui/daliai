@@ -512,9 +512,9 @@ function renderMath(element) {
     try {
         renderMathInElement(element, {
             delimiters: [
-                { left: "\\\\[", right: "\\\\]", display: true },
+                { left: "\\[", right: "\\]", display: true },
                 { left: "$$", right: "$$", display: true },
-                { left: "\\\\(", right: "\\\\)", display: false },
+                { left: "\\(", right: "\\)", display: false },
                 { left: "$", right: "$", display: false }
             ],
             throwOnError: false,
@@ -531,10 +531,10 @@ function renderAllMath() {
 
     document.querySelectorAll(".message-content").forEach(element => {
         if (
-            element.textContent.includes("\\\\(") ||
-            element.textContent.includes("\\\\)") ||
-            element.textContent.includes("\\\\[") ||
-            element.textContent.includes("\\\\]") ||
+            element.textContent.includes("\\(") ||
+            element.textContent.includes("\\)") ||
+            element.textContent.includes("\\[") ||
+            element.textContent.includes("\\]") ||
             element.textContent.includes("$")
         ) {
             renderMath(element);
