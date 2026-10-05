@@ -43,6 +43,14 @@ from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pptx import Presentation
 
+# Optional local voice cloning (XTTS v2). The app still works if TTS is unavailable.
+try:
+    import torch
+    from TTS.api import TTS
+except Exception:
+    torch = None
+    TTS = None
+
 
 # =========================================================
 # APP
@@ -115,6 +123,27 @@ MAX_MESSAGE_LENGTH = 8000
 MAX_EXTRACTED_TEXT = 60000
 MAX_PROMPT_CHARS = 60000
 MAX_AI_RESPONSE_CHARS = 30000
+
+# =========================================================
+# LOCAL VOICE CLONING / TTS
+# =========================================================
+VOICE_REFERENCE = BASE_DIR / "kikivoice-cloned-file-2026-10-05-05-56-45-9835.mp3"
+VOICE_OUTPUT_DIR = Path(os.getenv("DALI_VOICE_OUTPUT_DIR", "/tmp/dali-voice"))
+VOICE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+XTTS_LANGUAGE = os.getenv("DALI_TTS_LANGUAGE", "ar").strip() or "ar"
+_tts_model = None
+
+def get_tts_model():
+    global _tts_model
+    if _tts_model is not None:
+        return _tts_model
+    if TTS is None or torch is None:
+        raise RuntimeError("Local voice cloning is not installed.")
+    if not VOICE_REFERENCE.exists():
+        raise RuntimeError("Voice reference file is missing.")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    _tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+    return _tts_model
 MAX_CHAT_LIST = 100
 MAX_MESSAGES_PER_CHAT_RESPONSE = 200
 MAX_ARCHIVE_FILES = 2000
@@ -996,6 +1025,47 @@ def chat():
             message = "Dali AI could not generate a response. Please try again."
 
         return jsonify({"error": message}), 500
+
+
+# =========================================================
+# LOCAL VOICE CLONING ENDPOINT
+# =========================================================
+@app.route("/api/voice", methods=["POST"])
+@limiter.limit("20/minute")
+def voice():
+    try:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "")
+        if not isinstance(text, str):
+            return jsonify({"error": "Invalid text."}), 400
+        text = re.sub(r"\\s+", " ", text).strip()
+        if not text:
+            return jsonify({"error": "Text cannot be empty."}), 400
+        if len(text) > 5000:
+            text = text[:5000]
+
+        model = get_tts_model()
+        output_name = f"dali-voice-{os.urandom(12).hex()}.wav"
+        output_path = VOICE_OUTPUT_DIR / output_name
+        model.tts_to_file(
+            text=text,
+            speaker_wav=str(VOICE_REFERENCE),
+            language=XTTS_LANGUAGE,
+            file_path=str(output_path),
+            split_sentences=True
+        )
+        return send_from_directory(
+            VOICE_OUTPUT_DIR,
+            output_name,
+            mimetype="audio/wav",
+            as_attachment=False,
+            max_age=0
+        )
+    except Exception:
+        app.logger.exception("Voice cloning failed")
+        return jsonify({
+            "error": "Voice cloning is unavailable. Install the local TTS dependencies and model."
+        }), 503
 
 
 # =========================================================
