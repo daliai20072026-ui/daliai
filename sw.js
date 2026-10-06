@@ -1,4 +1,5 @@
-const CACHE_NAME = "dali-ai-v36";
+const CACHE_NAME = "dali-ai-v37";
+
 const APP_SHELL = [
     "./",
     "./index.html",
@@ -13,10 +14,22 @@ const APP_SHELL = [
     "./sw.js"
 ];
 
+async function cacheOne(cache, url) {
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (response && response.ok) {
+            await cache.put(url, response);
+        }
+    } catch (error) {
+        // One unavailable asset must never prevent the new service worker
+        // from installing. The network will be used when it becomes available.
+    }
+}
+
 self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(APP_SHELL))
+            .then(cache => Promise.all(APP_SHELL.map(url => cacheOne(cache, url))))
             .then(() => self.skipWaiting())
     );
 });
@@ -37,31 +50,47 @@ self.addEventListener("fetch", event => {
     const request = event.request;
     if (request.method !== "GET") return;
 
+    const url = new URL(request.url);
+
+    // Never interfere with APIs or third-party resources.
+    if (url.origin !== self.location.origin) return;
+
+    // HTML/navigation: network first so every Vercel update appears
+    // immediately. Use the cached page only when offline.
     if (request.mode === "navigate") {
         event.respondWith(
-            fetch(request)
+            fetch(request, { cache: "no-store" })
                 .then(response => {
-                    const copy = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(request, copy).catch(() => {}));
+                    if (response && response.ok) {
+                        const copy = response.clone();
+                        caches.open(CACHE_NAME)
+                            .then(cache => cache.put(request, copy))
+                            .catch(() => {});
+                    }
                     return response;
                 })
                 .catch(() =>
-                    caches.match(request).then(cached => cached || caches.match("./chat.html"))
+                    caches.match(request).then(cached =>
+                        cached || caches.match("./chat.html")
+                    )
                 )
         );
         return;
     }
 
+    // CSS/JS/images: network first as well. This prevents an old
+    // deployment asset from surviving a Git/Vercel update.
     event.respondWith(
-        caches.match(request).then(cached => {
-            if (cached) return cached;
-            return fetch(request).then(response => {
-                if (response && (response.ok || response.type === "opaque")) {
+        fetch(request, { cache: "no-store" })
+            .then(response => {
+                if (response && response.ok) {
                     const copy = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(request, copy).catch(() => {}));
+                    caches.open(CACHE_NAME)
+                        .then(cache => cache.put(request, copy))
+                        .catch(() => {});
                 }
                 return response;
-            });
-        })
+            })
+            .catch(() => caches.match(request))
     );
 });
