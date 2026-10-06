@@ -702,44 +702,43 @@ function addCopyButtons(message, originalText = "") {
     message.appendChild(actions);
 }
 
+let mathRenderQueue = Promise.resolve();
+
 function renderMath(element) {
-    if (!element || typeof renderMathInElement !== "function") {
-        return;
+    if (!element || !window.MathJax || typeof window.MathJax.typesetPromise !== "function") {
+        return Promise.resolve();
     }
 
-    try {
-        if (element.dataset.mathRendered === "true") return;
+    if (element.dataset.mathRendered === "true") {
+        return Promise.resolve();
+    }
 
-        renderMathInElement(element, {
-            delimiters: [
-                { left: "\\[", right: "\\]", display: true },
-                { left: "$", right: "$", display: true },
-                { left: "\\(", right: "\\)", display: false },
-                { left: "$", right: "$", display: false }
-            ],
-            throwOnError: false,
-            strict: "ignore",
-            trust: false,
-            output: "htmlAndMathml",
-            fleqn: false
+    element.dataset.mathRendered = "pending";
+    mathRenderQueue = mathRenderQueue
+        .then(() => window.MathJax.typesetPromise([element]))
+        .then(() => {
+            element.dataset.mathRendered = "true";
+        })
+        .catch(error => {
+            // Never break the chat if MathJax has a bad/unsupported formula.
+            delete element.dataset.mathRendered;
+            console.warn("MathJax rendering skipped:", error);
         });
 
-        element.dataset.mathRendered = "true";
-    } catch (error) {
-        console.warn("KaTeX rendering failed:", error);
-    }
+    return mathRenderQueue;
 }
 
 function renderAllMath() {
-    if (typeof renderMathInElement !== "function") return;
+    if (!window.MathJax || typeof window.MathJax.typesetPromise !== "function") return;
 
     document.querySelectorAll(".message-content").forEach(element => {
+        const text = element.textContent || "";
         if (
-            element.textContent.includes("\\(") ||
-            element.textContent.includes("\\)") ||
-            element.textContent.includes("\\[") ||
-            element.textContent.includes("\\]") ||
-            element.textContent.includes("$")
+            text.includes("\\\\(") ||
+            text.includes("\\\\)") ||
+            text.includes("\\\\[") ||
+            text.includes("\\\\]") ||
+            text.includes("$$")
         ) {
             renderMath(element);
         }
@@ -747,9 +746,11 @@ function renderAllMath() {
 }
 
 window.addEventListener("load", () => {
-    renderAllMath();
+    // MathJax may load after the page scripts; wait for its startup promise.
+    const ready = window.MathJax?.startup?.promise || Promise.resolve();
+    ready.then(renderAllMath).catch(() => {});
 });
- 
+
 function parseStoredFile(text) {
     const match = String(text || "").match(
         /^([\s\S]*?)\[DALI_FILE\]\nfilename:\s*(.+?)\n\[FILE_TEXT\]\n[\s\S]*?\n\[DALI_FILE_END\]\s*$/
