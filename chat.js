@@ -695,10 +695,6 @@ function addCopyButtons(message, originalText = "") {
 
     actions.appendChild(copyResponse);
 
-    if (originalText && originalText.trim()) {
-        actions.appendChild(makeListenButton(originalText));
-    }
-
     message.appendChild(actions);
 }
 
@@ -734,22 +730,40 @@ function renderAllMath() {
     document.querySelectorAll(".message-content").forEach(element => {
         const text = element.textContent || "";
         if (
-            text.includes("\\\\(") ||
-            text.includes("\\\\)") ||
-            text.includes("\\\\[") ||
-            text.includes("\\\\]") ||
-            text.includes("$$")
+            text.includes("\\(") ||
+            text.includes("\\)") ||
+            text.includes("\\[") ||
+            text.includes("\\]") ||
+            text.includes("$")
         ) {
             renderMath(element);
         }
     });
 }
 
-window.addEventListener("load", () => {
-    // MathJax may load after the page scripts; wait for its startup promise.
-    const ready = window.MathJax?.startup?.promise || Promise.resolve();
-    ready.then(renderAllMath).catch(() => {});
-});
+function scheduleMathRendering() {
+    const render = () => {
+        if (window.MathJax && typeof window.MathJax.typesetPromise === "function") {
+            renderAllMath();
+        }
+    };
+
+    const ready = window.MathJax?.startup?.promise;
+    if (ready && typeof ready.then === "function") {
+        ready.then(render).catch(() => {});
+    } else {
+        render();
+    }
+
+    // MathJax is loaded asynchronously. Retry a few times so mobile
+    // browsers that finish the CDN request late still render equations.
+    [350, 1000, 2200, 4000].forEach(delay => {
+        window.setTimeout(render, delay);
+    });
+}
+
+window.addEventListener("load", scheduleMathRendering);
+window.addEventListener("dali-mathjax-ready", renderAllMath);
 
 function parseStoredFile(text) {
     const match = String(text || "").match(
@@ -1381,7 +1395,7 @@ async function sendMessage() {
             const body = {
                 message: sendText,
                 history: contextBeforeTurn,
-                ...(voiceConversationMode ? { voice_language: getVoiceLanguageCode() } : {})
+                ...(false ? { voice_language: getVoiceLanguageCode() } : {})
             };
 
             options = {
