@@ -254,6 +254,18 @@ function containsArabic(text) {
 
 function protectMath(text) {
     const formulas = [];
+    let source = String(text ?? "");
+
+    // Protect fenced code first so code is never parsed as mathematics.
+    const codeBlocks = [];
+    const codeFence = /\`\`\`[\s\S]*?\`\`\`/g;
+    source = source.replace(codeFence, match => {
+        const index = codeBlocks.length;
+        codeBlocks.push(match);
+        return "DALI_CODE_TOKEN" + index + "END";
+    });
+
+    // Display math first, then inline math, to prevent partial matches.
     const patterns = [
         /\\\[[\s\S]*?\\\]/g,
         /\$\$[\s\S]*?\$\$/g,
@@ -262,16 +274,18 @@ function protectMath(text) {
     ];
 
     for (const pattern of patterns) {
-        text = text.replace(pattern, match => {
+        source = source.replace(pattern, match => {
             const index = formulas.length;
             formulas.push(match);
-            // Keep math outside Markdown parsing so underscores, asterisks,
-            // backslashes, and dollar signs are not rewritten by marked.
             return "DALI_MATH_TOKEN" + index + "END";
         });
     }
 
-    return { text, formulas };
+    codeBlocks.forEach((block, index) => {
+        source = source.replace("DALI_CODE_TOKEN" + index + "END", block);
+    });
+
+    return { text: source, formulas };
 }
 
 function restoreMath(text, formulas) {
@@ -694,17 +708,23 @@ function renderMath(element) {
     }
 
     try {
+        if (element.dataset.mathRendered === "true") return;
+
         renderMathInElement(element, {
             delimiters: [
                 { left: "\\[", right: "\\]", display: true },
-                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: true },
                 { left: "\\(", right: "\\)", display: false },
                 { left: "$", right: "$", display: false }
             ],
             throwOnError: false,
             strict: "ignore",
-            trust: false
+            trust: false,
+            output: "htmlAndMathml",
+            fleqn: false
         });
+
+        element.dataset.mathRendered = "true";
     } catch (error) {
         console.warn("KaTeX rendering failed:", error);
     }
@@ -772,6 +792,9 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
 
     if (type === "ai-message") {
         content.innerHTML = renderMarkdown(text);
+        if (containsArabic(text)) {
+            content.classList.add("has-arabic");
+        }
     } else {
         content.textContent = visibleText;
     }
