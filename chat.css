@@ -5811,3 +5811,167 @@ button, textarea, input {
     .message-content mjx-container { font-size: 0.93em; }
     .message-content mjx-container[display="true"] { margin: 13px -2px; padding: 8px 2px; }
 }
+
+
+/* =========================================================
+   DALI AI — STUDY CHAT POLISH
+========================================================= */
+
+.loading-message {
+    align-self: flex-start;
+    width: min(100%, 520px);
+    margin: 2px 0 6px;
+    padding: 12px 15px;
+    border: 1px solid rgba(99,230,255,.10);
+    border-radius: 18px;
+    border-bottom-left-radius: 6px;
+    background: linear-gradient(145deg, rgba(19,27,39,.96), rgba(12,17,26,.94));
+    box-shadow: 0 12px 35px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.035);
+    animation: daliThinkingIn .24s ease-out both;
+}
+
+.loading-message-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.loading-orb {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(126,231,255,.35), rgba(99,230,255,.08) 55%, rgba(139,125,255,.06));
+    border: 1px solid rgba(99,230,255,.18);
+}
+
+.loading-orb::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border-radius: 50%;
+    border: 1px solid rgba(99,230,255,.25);
+    animation: daliThinkingPulse 1.6s ease-in-out infinite;
+}
+
+.loading-spinner {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #7cedff;
+    box-shadow: 0 0 14px rgba(99,230,255,.65);
+    animation: daliThinkingPulse 1.05s ease-in-out infinite;
+}
+
+.loading-copy {
+    min-width: 0;
+}
+
+.loading-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #eef7ff;
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.loading-detail {
+    margin-top: 3px;
+    color: #77869b;
+    font-size: 11.5px;
+    line-height: 1.45;
+}
+
+.loading-dots {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    height: 16px;
+}
+
+.loading-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #63e6ff;
+    opacity: .25;
+    animation: daliThinkingDot 1.15s ease-in-out infinite;
+}
+
+.loading-dots span:nth-child(2) { animation-delay: .16s; }
+.loading-dots span:nth-child(3) { animation-delay: .32s; }
+
+@keyframes daliThinkingIn {
+    from { opacity: 0; transform: translateY(5px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes daliThinkingPulse {
+    0%, 100% { transform: scale(.72); opacity: .55; }
+    50% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes daliThinkingDot {
+    0%, 70%, 100% { transform: translateY(0); opacity: .25; }
+    35% { transform: translateY(-3px); opacity: 1; }
+}
+
+.message-content {
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: auto;
+}
+
+.message-content p,
+.message-content li {
+    text-wrap: pretty;
+}
+
+.message-content strong {
+    font-weight: 750;
+}
+
+.message-content mjx-container {
+    direction: ltr !important;
+    unicode-bidi: isolate;
+}
+
+.message-content mjx-container[display="true"] {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.input-box {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+@media (max-width: 430px) {
+    .loading-message {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 15px;
+        border-bottom-left-radius: 5px;
+    }
+
+    .loading-title { font-size: 12.5px; }
+    .loading-detail { font-size: 10.5px; }
+
+    .message-content {
+        overflow-wrap: anywhere;
+        font-size: 13.5px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-message,
+    .loading-spinner,
+    .loading-orb::before,
+    .loading-dots span {
+        animation: none !important;
+    }
+}
