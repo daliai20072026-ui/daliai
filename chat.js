@@ -581,7 +581,37 @@ function stopVoiceAudio() {
         }
         voiceAudio = null;
     }
+
+    // Stop browser speech fallback too.
+    try {
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    } catch {}
+
     voiceBusy = false;
+}
+
+function speakWithBrowserFallback(text, language) {
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+        return false;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(String(text || ""));
+    utterance.lang = VOICE_LANGUAGES[language] || "ar-TN";
+    utterance.rate = 0.98;
+    utterance.pitch = 1;
+    utterance.onstart = () => setVoiceUi("speaking", "Dali AI is speaking…");
+    utterance.onend = () => {
+        voiceBusy = false;
+        if (!speechListening && !isSending) setVoiceUi("", "Voice ready");
+    };
+    utterance.onerror = () => {
+        voiceBusy = false;
+        if (!speechListening && !isSending) setVoiceUi("", "Voice ready");
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    return true;
 }
 
 async function speakText(text, language = getVoiceLanguageCode()) {
@@ -624,10 +654,21 @@ async function speakText(text, language = getVoiceLanguageCode()) {
         await audio.play();
         return true;
     } catch (error) {
-        voiceBusy = false;
         stopVoiceAudio();
-        setVoiceUi("error", error?.message || "Voice playback failed.");
-        throw error;
+
+        // If the cloning service is unavailable, keep voice chat working
+        // with the browser's native speech engine instead of showing a
+        // blocking error to the user.
+        const fallbackWorked = speakWithBrowserFallback(text, language);
+        if (fallbackWorked) {
+            voiceBusy = true;
+            return true;
+        }
+
+        voiceBusy = false;
+        if (!speechListening && !isSending) setVoiceUi("", "Voice ready");
+        console.warn("Voice playback fallback unavailable:", error);
+        return false;
     }
 }
 
