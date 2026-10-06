@@ -5772,7 +5772,7 @@ button, textarea, input {
     background: var(--surface-hover);
     font-weight: 700;
 }
-.message-content .katex-display {
+.message-content mjx-container[display="true"] {
     display: block;
     width: 100%;
     margin: 18px 0;
@@ -5783,12 +5783,12 @@ button, textarea, input {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
 }
-.message-content .katex-display > .katex {
+.message-content mjx-container[display="true"] > .katex {
     display: inline-block;
     min-width: max-content;
     max-width: none;
 }
-.message-content .katex { font-size: 1.05em; line-height: 1.35; }
+.message-content mjx-container { font-size: 1.05em; line-height: 1.35; }
 .message-content code {
     direction: ltr;
     unicode-bidi: isolate;
@@ -5804,15 +5804,15 @@ button, textarea, input {
         font-size: 14px;
         line-height: 1.72;
     }
-    .message-content .katex-display {
+    .message-content mjx-container[display="true"] {
         margin: 15px -4px;
         padding: 10px 4px;
     }
-    .message-content .katex { font-size: 0.98em; }
+    .message-content mjx-container { font-size: 0.98em; }
 }
 @media (max-width: 430px) {
     .ai-message { padding: 13px 12px; }
     .message-content { font-size: 13.5px; line-height: 1.7; }
-    .message-content .katex { font-size: 0.93em; }
-    .message-content .katex-display { margin: 13px -2px; padding: 8px 2px; }
+    .message-content mjx-container { font-size: 0.93em; }
+    .message-content mjx-container[display="true"] { margin: 13px -2px; padding: 8px 2px; }
 }
