@@ -1394,8 +1394,7 @@ async function sendMessage() {
         } else {
             const body = {
                 message: sendText,
-                history: contextBeforeTurn,
-                ...(false ? { voice_language: getVoiceLanguageCode() } : {})
+                history: contextBeforeTurn
             };
 
             options = {
