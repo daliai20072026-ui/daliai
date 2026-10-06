@@ -1472,17 +1472,12 @@ async function sendMessage() {
             throw new Error("Dali AI returned an empty response.");
         }
 
-        const shouldSpeakReply = voiceConversationMode;
-        const replyLanguage = updateDetectedVoiceLanguage(reply);
+        // Voice mode is input-only: the user speaks, Dali AI transcribes
+        // and sends the request normally, then returns the answer as text.
+        voiceConversationMode = false;
+        updateDetectedVoiceLanguage(sendText);
 
         addMessage(reply, "ai-message");
-
-        if (shouldSpeakReply) {
-            voiceConversationMode = false;
-            speakText(reply, replyLanguage).catch(error => {
-                console.warn("Automatic voice reply failed:", error);
-            });
-        }
 
         const rememberedUser = sendText
             || (imageFile ? "[Image attached]" : "")
