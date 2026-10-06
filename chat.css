@@ -5783,11 +5783,6 @@ button, textarea, input {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
 }
-.message-content mjx-container[display="true"] > .katex {
-    display: inline-block;
-    min-width: max-content;
-    max-width: none;
-}
 .message-content mjx-container { font-size: 1.05em; line-height: 1.35; }
 .message-content code {
     direction: ltr;
