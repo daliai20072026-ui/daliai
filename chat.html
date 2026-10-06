@@ -470,6 +470,27 @@
                     aria-label="Message"
                 ></textarea>
 
+            <!-- VOICE CHAT — input only; AI replies by voice automatically -->
+            <div class="voice-control">
+                <div class="voice-status" id="voiceStatus" aria-live="polite">
+                    <span class="voice-status-dot" aria-hidden="true"></span>
+                    <span id="voiceStatusText">Voice ready</span>
+                </div>
+
+                <button
+                    type="button"
+                    class="voice-btn"
+                    id="voiceBtn"
+                    title="Talk to Dali AI"
+                    aria-label="Talk to Dali AI"
+                    aria-pressed="false"
+                >
+                    <span class="voice-mic" aria-hidden="true">🎙</span>
+                    <span class="voice-label">Voice</span>
+                </button>
+            </div>
+
+
                 <!-- SEND -->
 
                 <button
