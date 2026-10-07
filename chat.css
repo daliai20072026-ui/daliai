@@ -5975,3 +5975,58 @@ button, textarea, input {
         animation: none !important;
     }
 }
+
+
+/* =========================================================
+   AI SYNC + TYPEWRITER RESPONSE
+========================================================= */
+
+.typing-message .message-content {
+    position: relative;
+    min-height: 1.35em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.typing-message .message-content::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 4px;
+    vertical-align: -0.15em;
+    border-radius: 2px;
+    background: currentColor;
+    animation: daliTypingCursor 0.8s steps(1, end) infinite;
+}
+
+@keyframes daliTypingCursor {
+    0%, 45% { opacity: 1; }
+    46%, 100% { opacity: 0; }
+}
+
+/* Keep the normal thinking/sync circle smooth and lightweight. */
+.loading-orb {
+    animation: daliSyncPulse 1.35s ease-in-out infinite;
+}
+
+.loading-spinner {
+    animation: daliSyncSpin 0.9s linear infinite;
+}
+
+@keyframes daliSyncSpin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes daliSyncPulse {
+    0%, 100% { transform: scale(0.96); opacity: 0.82; }
+    50% { transform: scale(1.04); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .typing-message .message-content::after,
+    .loading-orb,
+    .loading-spinner {
+        animation: none;
+    }
+}
