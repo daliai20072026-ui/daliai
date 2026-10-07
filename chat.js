@@ -114,8 +114,8 @@ let selectedImageObjectUrl = null;
 let selectedFile = null;
 let isSending = false;
 
-// Conversation context exists only in this tab's memory.
-// It is never written to localStorage, cookies, or the server database.
+// Conversation context is kept locally on this device for the active chat.
+// It is not written to the Dali AI server database.
 const conversationHistory = [];
 const MAX_CONTEXT_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 50000;
