@@ -165,7 +165,7 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024
 MAX_FILE_SIZE = 10 * 1024 * 1024
 MAX_MESSAGE_LENGTH = 8000
 MAX_EXTRACTED_TEXT = 60000
-MAX_PROMPT_CHARS = 60000
+MAX_PROMPT_CHARS = 80000
 MAX_AI_RESPONSE_CHARS = 30000
 MAX_VOICE_AUDIO_BYTES = 15 * 1024 * 1024
 
@@ -847,7 +847,7 @@ def parse_client_history(value):
     selected = []
     total_chars = 0
 
-    for item in reversed(value[-40:]):
+    for item in reversed(value[-60:]):
         if not isinstance(item, dict):
             continue
 
