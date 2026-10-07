@@ -114,58 +114,21 @@ let selectedImageObjectUrl = null;
 let selectedFile = null;
 let isSending = false;
 
-// Conversation context is kept locally on this device for the active chat.
-// It is not written to the Dali AI server database.
+// Conversation context exists only in the current page session.
+// Nothing is persisted to localStorage, sessionStorage, cookies, or a server database.
 const conversationHistory = [];
 const MAX_CONTEXT_MESSAGES = 40;
 const MAX_CONTEXT_CHARS = 50000;
-const CHAT_SESSION_KEY = "dali-active-chat-v1";
 
 function persistConversation() {
-    try {
-        localStorage.setItem(
-            CHAT_SESSION_KEY,
-            JSON.stringify(conversationHistory)
-        );
-    } catch (error) {
-        console.warn("Could not save temporary chat context:", error);
-    }
+    // Intentionally empty: refreshing or leaving the website starts a clean chat.
 }
 
 function restoreConversation() {
-    try {
-        const raw = sessionStorage.getItem(CHAT_SESSION_KEY);
-        if (!raw) return false;
-
-        const saved = JSON.parse(raw);
-        if (!Array.isArray(saved)) return false;
-
-        conversationHistory.length = 0;
-
-        for (const item of saved.slice(-MAX_CONTEXT_MESSAGES)) {
-            if (!item || !["user", "assistant"].includes(item.role)) continue;
-            if (typeof item.content !== "string" || !item.content.trim()) continue;
-
-            conversationHistory.push({
-                role: item.role,
-                content: item.content.slice(0, 8000)
-            });
-        }
-
-        if (!conversationHistory.length) return false;
-
-        messages.innerHTML = "";
-        for (const item of conversationHistory) {
-            addMessage(item.content, item.role === "assistant" ? "ai-message" : "user-message");
-        }
-
-        updateMode("general");
-        return true;
-    } catch (error) {
-        console.warn("Could not restore temporary chat context:", error);
-        conversationHistory.length = 0;
-        return false;
-    }
+    // Intentionally empty: never restore an old conversation after refresh/reopen.
+    conversationHistory.length = 0;
+    if (messages) messages.innerHTML = "";
+    return false;
 }
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -1613,11 +1576,9 @@ window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
 (function init() {
-    const restored = restoreConversation();
-
-    if (!restored) {
-        showWelcome();
-    }
+    // Always start clean after a refresh/reload.
+    restoreConversation();
+    showWelcome();
 
     updateConnectionStatus();
     updateHistoryNotice();
