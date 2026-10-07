@@ -799,7 +799,7 @@ def file_too_large(error):
 
 @app.errorhandler(500)
 def internal_server_error(error):
-    app.logger.exception("Unhandled server error")
+    app.logger.error("Unhandled server error (request content intentionally not logged).")
     return jsonify({
         "error": "Dali AI encountered an internal error. Please try again."
     }), 500
@@ -966,7 +966,7 @@ def chat():
                     file_mimetype
                 )
             except Exception:
-                app.logger.exception("File extraction failed")
+                app.logger.error("File extraction failed (file content intentionally not logged).")
                 return jsonify({
                     "error": "Dali AI could not read this file. "
                              "Check the file format, size, or readability."
@@ -1059,7 +1059,7 @@ def chat():
         try:
             response = client.chat.completions.create(**kwargs)
         except Exception as provider_error:
-            app.logger.exception("g4f provider failed")
+            app.logger.error("AI provider request failed (prompt/history intentionally not logged).")
             raise RuntimeError(
                 "g4f provider error: " + str(provider_error)
             ) from provider_error
@@ -1089,7 +1089,7 @@ def chat():
         })
 
     except Exception as error:
-        app.logger.exception("Dali AI request failed")
+        app.logger.error("Dali AI request failed (message/history/file content intentionally not logged).")
         err_msg = str(error).strip()
         lowered = err_msg.lower()
 
@@ -1287,17 +1287,17 @@ def voice():
         )
 
     except urllib_error.HTTPError as error:
-        app.logger.exception("Voice upstream HTTP error")
+        app.logger.error("Voice upstream HTTP error (voice content intentionally not logged).")
         return jsonify({
             "error": f"Voice service returned HTTP {error.code}."
         }), 502
     except (urllib_error.URLError, TimeoutError):
-        app.logger.exception("Voice upstream connection failed")
+        app.logger.error("Voice upstream connection failed (voice content intentionally not logged).")
         return jsonify({
             "error": "Could not connect to the voice service."
         }), 502
     except Exception as error:
-        app.logger.exception("Voice synthesis failed")
+        app.logger.error("Voice synthesis failed (voice text/audio content intentionally not logged).")
         message = str(error).lower()
 
         if "queue" in message or "busy" in message:
