@@ -123,7 +123,7 @@ const CHAT_SESSION_KEY = "dali-active-chat-v1";
 
 function persistConversation() {
     try {
-        sessionStorage.setItem(
+        localStorage.setItem(
             CHAT_SESSION_KEY,
             JSON.stringify(conversationHistory)
         );
