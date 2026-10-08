@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Dali AI — Private Instagram Agent</title><link rel="stylesheet" href="./instagram.css"></head>
+<body><main class="agent-shell">
+<header class="hero"><div class="badge">DALI AI</div><h1>Private Instagram Agent</h1><p>Connect only your own professional Instagram account. Dali AI can prepare captions and publish for you.</p></header>
+<section class="card"><div class="status-row"><span id="dot" class="dot"></span><strong id="status">Checking connection…</strong></div><p id="account" class="muted">No Instagram account connected.</p><div id="connectBox"><label for="ownerKey">Private owner key</label><input id="ownerKey" type="password" autocomplete="off" placeholder="Enter your private Dali owner key"><button id="connect" class="primary">Connect Instagram with Facebook</button><p class="hint">Your key is sent only to Dali AI to authorize your private connection.</p></div></section>
+<section class="card"><h2>Publish a post</h2><label for="imageUrl">Public HTTPS image URL</label><input id="imageUrl" type="url" placeholder="https://…/image.jpg"><label for="caption">Caption <span>(optional)</span></label><textarea id="caption" rows="6" placeholder="Leave empty and Dali AI will generate the caption."></textarea><button id="publish" class="primary" disabled>Publish to my Instagram</button><p id="result" class="result" aria-live="polite"></p></section>
+<section class="card automation"><h2>Daily automation</h2><p>When persistent storage, the Meta app and a public image source are configured, Vercel Cron can run the agent automatically once per day.</p><div class="pill" id="automationStatus">Checking…</div></section>
+</main><script src="./instagram.js" defer></script></body></html>
