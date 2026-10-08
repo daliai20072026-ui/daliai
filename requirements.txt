@@ -6,5 +6,6 @@ python-docx
 openpyxl
 python-pptx
 python-dotenv
-
 gradio_client
+redis
+cryptography
