@@ -1416,6 +1416,185 @@ def voice():
         return jsonify({"error": public_message}), 503
 
 
+
+# =========================================================
+# PRIVATE INSTAGRAM AGENT
+# =========================================================
+def _instagram_record_from_selected(selected):
+    return {
+        "ig_user_id": str(selected.get("ig_user_id", "")),
+        "username": str(selected.get("username", "")),
+        "page_id": str(selected.get("page_id", "")),
+        "page_name": str(selected.get("page_name", "")),
+        "page_access_token": str(selected.get("page_access_token", "")),
+        "connected_at": datetime.now(timezone.utc).isoformat()
+    }
+
+def _instagram_record():
+    record = _instagram_load()
+    if record:
+        return record
+    if INSTAGRAM_PAGE_ACCESS_TOKEN and INSTAGRAM_ALLOWED_IG_USER_ID:
+        return {"ig_user_id": INSTAGRAM_ALLOWED_IG_USER_ID, "username": "", "page_id": "", "page_name": "", "page_access_token": INSTAGRAM_PAGE_ACCESS_TOKEN}
+    raw = request.cookies.get(INSTAGRAM_TOKEN_COOKIE)
+    fernet = _instagram_fernet()
+    if raw and fernet:
+        try:
+            return json.loads(fernet.decrypt(raw.encode("utf-8")).decode("utf-8"))
+        except Exception:
+            pass
+    return None
+
+def _instagram_public_error(error):
+    message = str(error or "").lower()
+    if "permission" in message or "scope" in message:
+        return "Instagram publishing permission is missing in Meta."
+    if "professional" in message or "business" in message or "creator" in message:
+        return "The Instagram account must be Business or Creator."
+    return "Instagram could not complete the request. Please reconnect your account."
+
+@app.route("/api/instagram/connect", methods=["GET"])
+@limiter.exempt
+def instagram_connect():
+    key = request.args.get("key", "")
+    if not INSTAGRAM_APP_ID or not INSTAGRAM_APP_SECRET or not INSTAGRAM_OWNER_KEY:
+        return jsonify({"error": "Instagram agent is not configured yet."}), 503
+    if not key or not hmac.compare_digest(key, INSTAGRAM_OWNER_KEY):
+        return jsonify({"error": "Unauthorized."}), 401
+    state = _instagram_state()
+    params = {
+        "client_id": INSTAGRAM_APP_ID,
+        "redirect_uri": _instagram_redirect_uri(),
+        "response_type": "code",
+        "scope": "pages_show_list,instagram_basic,instagram_content_publish,pages_read_engagement,instagram_manage_comments",
+        "state": state
+    }
+    location = "https://www.facebook.com/" + INSTAGRAM_GRAPH_VERSION + "/dialog/oauth?" + urllib.parse.urlencode(params)
+    return Response("", status=302, headers={"Location": location})
+
+@app.route("/api/instagram/callback", methods=["GET"])
+@limiter.exempt
+def instagram_callback():
+    if not _instagram_verify_state(request.args.get("state", "")):
+        return Response("Invalid or expired Instagram connection state.", status=400)
+    code = request.args.get("code", "")
+    if not code:
+        return Response("Instagram authorization was cancelled.", status=400)
+    try:
+        token_params = {"client_id": INSTAGRAM_APP_ID, "client_secret": INSTAGRAM_APP_SECRET, "redirect_uri": _instagram_redirect_uri(), "code": code}
+        token_url = _instagram_url("oauth/access_token") + "?" + urllib.parse.urlencode(token_params)
+        req = urllib_request.Request(token_url, headers={"User-Agent": "DaliAI-InstagramAgent/1.0"})
+        with urllib_request.urlopen(req, timeout=30) as response:
+            short_token = json.loads(response.read().decode("utf-8")).get("access_token")
+        if not short_token:
+            raise RuntimeError("Meta returned no access token")
+        exchange = {"grant_type": "fb_exchange_token", "client_id": INSTAGRAM_APP_ID, "client_secret": INSTAGRAM_APP_SECRET, "fb_exchange_token": short_token}
+        exchange_url = _instagram_url("oauth/access_token") + "?" + urllib.parse.urlencode(exchange)
+        req = urllib_request.Request(exchange_url, headers={"User-Agent": "DaliAI-InstagramAgent/1.0"})
+        with urllib_request.urlopen(req, timeout=30) as response:
+            user_token = json.loads(response.read().decode("utf-8")).get("access_token") or short_token
+        pages = _instagram_get("me/accounts", user_token, {"fields": "name,access_token,tasks,instagram_business_account"}).get("data", [])
+        selected = None
+        for page in pages:
+            ig = page.get("instagram_business_account") or {}
+            if ig.get("id") and page.get("access_token"):
+                selected = {"page_id": page.get("id", ""), "page_name": page.get("name", ""), "page_access_token": page.get("access_token", ""), "ig_user_id": ig.get("id", "")}
+                break
+        if not selected:
+            raise RuntimeError("No linked Instagram Professional account was found")
+        profile = _instagram_get(selected["ig_user_id"], selected["page_access_token"], {"fields": "id,username,account_type"})
+        selected["username"] = profile.get("username", "")
+        if INSTAGRAM_ALLOWED_IG_USER_ID and selected["ig_user_id"] != INSTAGRAM_ALLOWED_IG_USER_ID:
+            raise RuntimeError("This is not the private owner Instagram account")
+        record = _instagram_record_from_selected(selected)
+        persisted = _instagram_store(record)
+        response = Response("""<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Dali AI Instagram</title></head><body style='font-family:system-ui;background:#0b1020;color:white;display:grid;place-items:center;min-height:100vh'><main style='max-width:520px;padding:32px;text-align:center'><h1>Instagram connected ✓</h1><p>@""" + str(record["username"]).replace("<", "&lt;") + """ is connected to your private Dali AI agent.</p><p>""" + ("Secure persistent automation is enabled." if persisted else "Browser connection is ready. Add Redis storage or a Vercel token for scheduled automation.") + """</p><a href='/instagram.html' style='display:inline-block;padding:12px 18px;background:white;color:#111;border-radius:12px;text-decoration:none'>Open Agent</a></main></body></html>""")
+        if not persisted:
+            fernet = _instagram_fernet()
+            if fernet:
+                response.set_cookie(INSTAGRAM_TOKEN_COOKIE, fernet.encrypt(json.dumps(record).encode("utf-8")).decode("utf-8"), httponly=True, secure=True, samesite="Lax", max_age=2592000, path="/")
+        return response
+    except Exception as error:
+        app.logger.error("Instagram OAuth callback failed (token/content not logged).")
+        return Response(_instagram_public_error(error), status=502)
+
+@app.route("/api/instagram/status", methods=["GET"])
+@limiter.exempt
+def instagram_status():
+    record = _instagram_record()
+    if not record:
+        return jsonify({"connected": False, "configured": bool(INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET and INSTAGRAM_OWNER_KEY), "persistent_storage": bool(_instagram_redis())})
+    try:
+        profile = _instagram_get(record["ig_user_id"], record["page_access_token"], {"fields": "id,username,account_type"})
+        return jsonify({"connected": True, "username": profile.get("username", record.get("username", "")), "account_type": profile.get("account_type", "UNKNOWN"), "ig_user_id": record["ig_user_id"], "persistent_storage": bool(_instagram_load()), "auto_post_enabled": INSTAGRAM_AUTO_POST_ENABLED})
+    except Exception:
+        return jsonify({"connected": False, "error": "Instagram connection needs to be renewed."})
+
+def _generate_instagram_caption():
+    response = client.chat.completions.create(messages=[
+        {"role": "system", "content": "You write concise Instagram captions for Dali AI."},
+        {"role": "user", "content": "Create one polished English Instagram caption about Dali AI helping with AI, study, math, physics, science, coding and productivity. Include 3-5 relevant hashtags. Return only the caption."}
+    ], model=G4F_MODEL)
+    answer = response.choices[0].message.content if response and getattr(response, "choices", None) else ""
+    return clean_ai_response(answer)[:2200]
+
+def _instagram_publish_image(record, image_url, caption):
+    if not image_url.startswith("https://"):
+        raise ValueError("A public HTTPS image URL is required")
+    create = _instagram_post(record["ig_user_id"] + "/media", record["page_access_token"], {"image_url": image_url, "caption": caption})
+    container_id = create.get("id")
+    if not container_id:
+        raise RuntimeError("Instagram did not create a media container")
+    import time
+    for _ in range(12):
+        status = _instagram_get(container_id, record["page_access_token"], {"fields": "status_code,status"})
+        if status.get("status_code") == "FINISHED":
+            break
+        if status.get("status_code") == "ERROR":
+            raise RuntimeError(status.get("status") or "Instagram media processing failed")
+        time.sleep(2)
+    result = _instagram_post(record["ig_user_id"] + "/media_publish", record["page_access_token"], {"creation_id": container_id})
+    return result.get("id")
+
+@app.route("/api/instagram/publish", methods=["POST"])
+@limiter.limit("5/hour")
+def instagram_publish():
+    record = _instagram_record()
+    if not record:
+        return jsonify({"error": "Connect your private Instagram account first."}), 401
+    data = request.get_json(silent=True) or {}
+    image_url = str(data.get("image_url") or INSTAGRAM_DEFAULT_IMAGE_URL).strip()
+    caption = str(data.get("caption") or "").strip()[:2200]
+    try:
+        if not caption:
+            caption = _generate_instagram_caption()
+        media_id = _instagram_publish_image(record, image_url, caption)
+        return jsonify({"ok": True, "media_id": media_id, "caption": caption})
+    except Exception as error:
+        app.logger.error("Instagram publish failed (token/content intentionally not logged).")
+        return jsonify({"error": _instagram_public_error(error)}), 502
+
+@app.route("/api/instagram/cron", methods=["GET", "POST"])
+@limiter.exempt
+def instagram_cron():
+    cron_secret = os.getenv("CRON_SECRET", "").strip()
+    authorization = request.headers.get("Authorization", "")
+    if not cron_secret or not hmac.compare_digest(authorization, "Bearer " + cron_secret):
+        return jsonify({"error": "Unauthorized."}), 401
+    if not INSTAGRAM_AUTO_POST_ENABLED:
+        return jsonify({"ok": True, "skipped": True, "reason": "Auto-posting disabled."})
+    record = _instagram_load()
+    if not record:
+        return jsonify({"error": "No persistent Instagram connection is configured."}), 503
+    try:
+        caption = _generate_instagram_caption()
+        media_id = _instagram_publish_image(record, INSTAGRAM_DEFAULT_IMAGE_URL, caption)
+        return jsonify({"ok": True, "media_id": media_id})
+    except Exception as error:
+        app.logger.error("Instagram scheduled publish failed (token/content not logged).")
+        return jsonify({"error": _instagram_public_error(error)}), 502
+
+
 # =========================================================
 # STATIC FILE ROUTING
 # =========================================================
@@ -1431,7 +1610,10 @@ PUBLIC_FILES = {
     "logo.ico",
     "logo.png",
     "sed.png",
-    "sw.js"
+    "sw.js",
+    "instagram.html",
+    "instagram.css",
+    "instagram.js"
 }
 
 
