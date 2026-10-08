@@ -161,8 +161,8 @@ client = Client(provider=Gemini)
 # ATTACHMENT SETTINGS
 # =========================================================
 
-MAX_IMAGE_SIZE = 3 * 1024 * 1024
-MAX_FILE_SIZE = 3 * 1024 * 1024
+MAX_IMAGE_SIZE = 50 * 1024 * 1024
+MAX_FILE_SIZE = 50 * 1024 * 1024
 MAX_MESSAGE_LENGTH = 8000
 MAX_EXTRACTED_TEXT = 60000
 MAX_PROMPT_CHARS = 80000
