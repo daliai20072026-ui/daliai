@@ -131,8 +131,8 @@ function restoreConversation() {
     return false;
 }
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024;
+const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
     "image/jpeg",
     "image/png",
