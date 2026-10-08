@@ -133,6 +133,10 @@ function restoreConversation() {
 
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024;
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+// Vercel Functions reject request bodies above 4.5 MB. Keep a safety margin.
+const MAX_UPLOAD_REQUEST_BYTES = 4 * 1024 * 1024;
+let filePreparationPromise = null;
+let fileSelectionToken = 0;
 const ALLOWED_IMAGE_TYPES = new Set([
     "image/jpeg",
     "image/png",
@@ -1150,12 +1154,65 @@ function removeSelectedImage() {
     }
 }
 
-function selectFile(file) {
+async function prepareImageForVercel(file) {
+    if (file.size <= MAX_UPLOAD_REQUEST_BYTES) return file;
+
+    // Large images can be selected up to 50 MB, but Vercel Functions have
+    // a 4.5 MB request-body limit. Compress large images in the browser so
+    // the original file never has to pass through the Vercel Function.
+    const objectUrl = URL.createObjectURL(file);
+    try {
+        const image = new Image();
+        image.decoding = "async";
+        image.src = objectUrl;
+        await new Promise((resolve, reject) => {
+            image.onload = resolve;
+            image.onerror = () => reject(new Error("Could not read the image."));
+        });
+
+        const maxDimension = 2200;
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const ctx = canvas.getContext("2d", { alpha: false });
+        if (!ctx) throw new Error("Image compression is unavailable on this device.");
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+        const qualities = [0.82, 0.72, 0.62, 0.52, 0.42];
+        for (const quality of qualities) {
+            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+            if (blob && blob.size <= MAX_UPLOAD_REQUEST_BYTES) {
+                const safeName = (file.name || "image").replace(/\\.[^.]+$/, "") + ".jpg";
+                return new File([blob], safeName, { type: "image/jpeg", lastModified: Date.now() });
+            }
+        }
+
+        // One final smaller render for very detailed photographs.
+        const smallerScale = Math.min(0.65, 1600 / Math.max(canvas.width, canvas.height));
+        const smallCanvas = document.createElement("canvas");
+        smallCanvas.width = Math.max(1, Math.round(canvas.width * smallerScale));
+        smallCanvas.height = Math.max(1, Math.round(canvas.height * smallerScale));
+        const smallCtx = smallCanvas.getContext("2d", { alpha: false });
+        smallCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+        const blob = await new Promise(resolve => smallCanvas.toBlob(resolve, "image/jpeg", 0.5));
+        if (!blob || blob.size > MAX_UPLOAD_REQUEST_BYTES) {
+            throw new Error("This image cannot be compressed enough for the current upload limit.");
+        }
+        const safeName = (file.name || "image").replace(/\\.[^.]+$/, "") + ".jpg";
+        return new File([blob], safeName, { type: "image/jpeg", lastModified: Date.now() });
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+async function selectFile(file) {
     if (!file) return;
+    const selectionToken = ++fileSelectionToken;
 
     if (file.size > MAX_FILE_SIZE) {
         addMessage(
-            "This file is too large. Maximum size is 10 MB.",
+            "This file is too large. Maximum size is 50 MB.",
             "ai-message"
         );
         return;
@@ -1194,13 +1251,24 @@ function selectFile(file) {
     if (isImage) {
         if (file.size > MAX_IMAGE_SIZE) {
             addMessage(
-                "Image is too large. Maximum size is 5 MB.",
+                "Image is too large. Maximum size is 50 MB.",
                 "ai-message"
             );
             return;
         }
 
-        selectedImage = file;
+        filePreparationPromise = prepareImageForVercel(file);
+        try {
+            const preparedImage = await filePreparationPromise;
+            if (selectionToken !== fileSelectionToken) return;
+            selectedImage = preparedImage;
+        } catch (error) {
+            if (selectionToken !== fileSelectionToken) return;
+            addMessage(error?.message || "Could not prepare this image for upload.", "ai-message");
+            return;
+        } finally {
+            if (selectionToken === fileSelectionToken) filePreparationPromise = null;
+        }
 
         if (previewImage) {
             previewImage.onload = null;
@@ -1257,6 +1325,14 @@ function selectFile(file) {
         };
 
         reader.readAsDataURL(file);
+        return;
+    }
+
+    if (file.size > MAX_UPLOAD_REQUEST_BYTES) {
+        addMessage(
+            "This document is over 4 MB. Vercel limits direct API uploads to 4.5 MB; large documents need direct storage upload.",
+            "ai-message"
+        );
         return;
     }
 
@@ -1335,6 +1411,8 @@ async function sendMessage() {
     isSending = true;
 
     const sendText = text;
+    if (filePreparationPromise) await filePreparationPromise;
+
     const imageFile = selectedImage;
     const fileFile = selectedFile;
     const imageUrl = selectedImageUrl;
@@ -1584,7 +1662,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=37").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=38").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
