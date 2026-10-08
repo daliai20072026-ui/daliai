@@ -37,8 +37,7 @@ function getInitialVoiceLanguage() {
 
 let detectedVoiceLanguage = getInitialVoiceLanguage();
 try {
-    const saved = sessionStorage.getItem("dali_voice_language");
-    if (VOICE_LANGUAGES[saved]) detectedVoiceLanguage = saved;
+    // Voice language is detected per session; do not persist it across refreshes.
 } catch {}
 
 function detectVoiceLanguage(text) {
@@ -1664,7 +1663,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=43").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=44").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
