@@ -217,9 +217,9 @@ function containsArabic(text) {
 function normalizePronunciationNotation(text) {
     return String(text ?? "")
         // English pronunciation: $/t/$, $/d/$, $/ɪd/$ -> /t/, /d/, /ɪd/
-        .replace(/\\$\\s*(\\/(?:t|d|id|ɪd|ʃ|ʒ|θ|ð|ŋ|ə|æ|ʌ|ɑ|ɔ|ɜ|ː|[tdɪ]+)\\/)\\s*\\$/gi, "$1")
+        .replace(/\$\s*(\/(?:t|d|id|ɪd|ʃ|ʒ|θ|ð|ŋ|ə|æ|ʌ|ɑ|ɔ|ɜ|ː|[tdɪ]+)\/)\s*\$/gi, "$1")
         // Common model output: $\\text{d}$ -> d (not a math formula).
-        .replace(/\\$\\s*\\\\text\\{([^{}]+)\\}\\s*\\$/g, "$1");
+        .replace(/\$\s*\\text\{([^{}]+)\}\s*\$/g, "$1");
 }
 
 function protectMath(text) {
