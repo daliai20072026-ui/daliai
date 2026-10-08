@@ -403,3 +403,39 @@ body {
         height: 950px;
     }
 }
+
+
+/* Dali AI site footer */
+.site-footer {
+    width: min(100%, 1100px);
+    margin: 0 auto 50px;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    text-align: center;
+    color: #8B949E;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.site-footer p {
+    margin: 3px 0;
+}
+
+.site-footer p:first-child {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.site-footer span {
+    display: inline-block;
+    margin: 0 2px;
+    font-size: 13px;
+}
+
+@media (max-width: 500px) {
+    .site-footer {
+        font-size: 11px;
+        margin-bottom: 30px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}
