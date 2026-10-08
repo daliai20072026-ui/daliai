@@ -775,6 +775,7 @@ If the extracted content is incomplete or unreadable, say so clearly.
 
     if mode == "coding":
         return f"""
+{DALI_IDENTITY}
 You are Dali AI in CODING ASSISTANT MODE.
 You are designed for students and developers.
 
@@ -800,6 +801,7 @@ Rules:
 
     if mode == "study":
         return f"""
+{DALI_IDENTITY}
 You are Dali AI in STUDY ASSISTANT MODE.
 You are designed for students.
 
@@ -822,6 +824,7 @@ Rules:
 """
 
     return f"""
+{DALI_IDENTITY}
 You are Dali AI, a helpful AI assistant designed for students and developers.
 
 Rules:
@@ -1194,6 +1197,23 @@ def chat():
             raise RuntimeError("Empty AI response.")
 
         answer = clean_ai_response(answer)
+
+        # Final identity guard: the model must never claim that Google created Dali AI.
+        # Gemini may power Dali AI, but Dali AI is the product/project identity.
+        identity_patterns = (
+            "i was created by google",
+            "i was made by google",
+            "google created me",
+            "google made me",
+            "created by google",
+            "made by google",
+        )
+        if any(pattern in answer.lower() for pattern in identity_patterns):
+            answer = (
+                "I’m Dali AI, created and developed for the Dali AI project, "
+                "powered by Google Gemini."
+            )
+
         answer = fix_math(answer)
 
         if len(answer) > MAX_AI_RESPONSE_CHARS:
