@@ -1396,7 +1396,7 @@ function getFileIcon(filename) {
     return icons[extension] || "📎";
 }
 
-async async function sendMessage() {
+async function sendMessage() {
     if (isSending) return;
 
     const text = (input?.value || "").trim();
@@ -1659,7 +1659,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=44").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=45").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
