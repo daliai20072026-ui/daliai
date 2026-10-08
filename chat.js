@@ -1102,11 +1102,6 @@ function loadChats() {
 function startNewChat() {
     conversationHistory.length = 0;
 
-    try {
-        sessionStorage.removeItem(CHAT_SESSION_KEY);
-    } catch (error) {
-        console.warn("Could not clear temporary chat context:", error);
-    }
 
     removeSelectedImage();
     showWelcome();
@@ -1406,7 +1401,7 @@ function getFileIcon(filename) {
     return icons[extension] || "📎";
 }
 
-async function sendMessage() {
+async async function sendMessage() {
     if (isSending) return;
 
     const text = (input?.value || "").trim();
@@ -1669,7 +1664,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=38").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=41").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
