@@ -921,7 +921,7 @@ def chat():
 
             if len(image_bytes) > MAX_IMAGE_SIZE:
                 return jsonify({
-                    "error": "Image is too large. Maximum size is 5 MB."
+                    "error": "Image is too large. Maximum size is 50 MB."
                 }), 400
 
             if not image_bytes:
@@ -953,7 +953,7 @@ def chat():
 
             if len(file_bytes) > MAX_FILE_SIZE:
                 return jsonify({
-                    "error": "File is too large. Maximum size is 10 MB."
+                    "error": "File is too large. Maximum size is 50 MB."
                 }), 400
 
             if not file_bytes:
