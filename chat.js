@@ -36,9 +36,6 @@ function getInitialVoiceLanguage() {
 }
 
 let detectedVoiceLanguage = getInitialVoiceLanguage();
-try {
-    // Voice language is detected per session; do not persist it across refreshes.
-} catch {}
 
 function detectVoiceLanguage(text) {
     const value = String(text || "").trim();
@@ -57,7 +54,6 @@ function detectVoiceLanguage(text) {
 
 function updateDetectedVoiceLanguage(text) {
     detectedVoiceLanguage = detectVoiceLanguage(text);
-    try { sessionStorage.setItem("dali_voice_language", detectedVoiceLanguage); } catch {}
     return detectedVoiceLanguage;
 }
 
@@ -1207,7 +1203,7 @@ async function prepareImageForVercel(file) {
     }
 }
 
-async async function selectFile(file) {
+async function selectFile(file) {
     if (!file) return;
     const selectionToken = ++fileSelectionToken;
 
