@@ -1,4 +1,4 @@
-const CACHE_NAME = "dali-ai-v43";
+const CACHE_NAME = "dali-ai-v44";
 
 const APP_SHELL = [
     "./",
