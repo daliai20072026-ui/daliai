@@ -1,17 +1,17 @@
-const CACHE_NAME = "dali-ai-v46";
+const CACHE_NAME = "dali-ai-v47";
 
 const APP_SHELL = [
     "./",
     "./index.html",
     "./chat.html",
     "./chat.css?v=29",
-    "./chat.js?v=62",
+    "./chat.js?v=63",
     "./style.css",
     "./Features.html",
     "./download.html",
     "./logo.png",
     "./sed.png",
-    "./sw.js?v=46"
+    "./sw.js?v=47"
 ];
 
 async function cacheOne(cache, url) {
