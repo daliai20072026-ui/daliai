@@ -219,6 +219,14 @@ function containsArabic(text) {
     return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(text || "");
 }
 
+function normalizePronunciationNotation(text) {
+    return String(text ?? "")
+        // English pronunciation: $/t/$, $/d/$, $/ɪd/$ -> /t/, /d/, /ɪd/
+        .replace(/\\$\\s*(\\/(?:t|d|id|ɪd|ʃ|ʒ|θ|ð|ŋ|ə|æ|ʌ|ɑ|ɔ|ɜ|ː|[tdɪ]+)\\/)\\s*\\$/gi, "$1")
+        // Common model output: $\\text{d}$ -> d (not a math formula).
+        .replace(/\\$\\s*\\\\text\\{([^{}]+)\\}\\s*\\$/g, "$1");
+}
+
 function protectMath(text) {
     const formulas = [];
     let source = String(text ?? "");
@@ -237,7 +245,6 @@ function protectMath(text) {
         /\\\[[\s\S]*?\\\]/g,
         /\$\$[\s\S]*?\$\$/g,
         /\\\([\s\S]*?\\\)/g,
-        /\$(?!\s)(?:\\.|[^$\\\n])+\$/g
     ];
 
     for (const pattern of patterns) {
@@ -394,7 +401,7 @@ function renderMarkdownFallback(text) {
 }
 
 function renderMarkdown(text) {
-    text = text ?? "";
+    text = normalizePronunciationNotation(text ?? "");
     const protectedMath = protectMath(text);
 
     if (
