@@ -39,6 +39,10 @@ from pathlib import Path
 import re
 import base64
 import zipfile
+import secrets
+import hashlib
+import hmac
+import urllib.parse
 
 # Load local .env for development. Vercel/production environment variables
 # still take precedence because load_dotenv() does not override existing values.
@@ -198,6 +202,108 @@ SUPPORTED_VOICE_LANGUAGES = {
     "fr": "fr",
     "en": "en",
 }
+
+# =========================================================
+# PRIVATE INSTAGRAM AGENT CONFIGURATION
+# =========================================================
+INSTAGRAM_GRAPH_VERSION = os.getenv("INSTAGRAM_GRAPH_VERSION", "v26.0").strip() or "v26.0"
+INSTAGRAM_APP_ID = os.getenv("INSTAGRAM_APP_ID", "").strip()
+INSTAGRAM_APP_SECRET = os.getenv("INSTAGRAM_APP_SECRET", "").strip()
+INSTAGRAM_OWNER_KEY = os.getenv("INSTAGRAM_OWNER_KEY", "").strip()
+INSTAGRAM_REDIRECT_URI = os.getenv("INSTAGRAM_REDIRECT_URI", "").strip()
+INSTAGRAM_PAGE_ACCESS_TOKEN = os.getenv("INSTAGRAM_PAGE_ACCESS_TOKEN", "").strip()
+INSTAGRAM_ALLOWED_IG_USER_ID = os.getenv("INSTAGRAM_ALLOWED_IG_USER_ID", "").strip()
+INSTAGRAM_DEFAULT_IMAGE_URL = os.getenv("INSTAGRAM_DEFAULT_IMAGE_URL", "").strip()
+INSTAGRAM_AUTO_POST_ENABLED = os.getenv("INSTAGRAM_AUTO_POST_ENABLED", "false").strip().lower() == "true"
+INSTAGRAM_TOKEN_COOKIE = "dali_ig_session"
+
+try:
+    import redis as redis_lib
+except ImportError:
+    redis_lib = None
+
+try:
+    from cryptography.fernet import Fernet
+except ImportError:
+    Fernet = None
+
+def _instagram_fernet():
+    if not INSTAGRAM_APP_SECRET or Fernet is None:
+        return None
+    key = base64.urlsafe_b64encode(hashlib.sha256(INSTAGRAM_APP_SECRET.encode("utf-8")).digest())
+    return Fernet(key)
+
+def _instagram_redis():
+    if not REDIS_URL or redis_lib is None:
+        return None
+    try:
+        return redis_lib.from_url(REDIS_URL, decode_responses=True)
+    except Exception:
+        return None
+
+def _instagram_store(record):
+    fernet = _instagram_fernet()
+    store = _instagram_redis()
+    if not fernet or not store:
+        return False
+    encrypted = fernet.encrypt(json.dumps(record).encode("utf-8")).decode("utf-8")
+    store.set("dali:instagram:owner", encrypted)
+    return True
+
+def _instagram_load():
+    fernet = _instagram_fernet()
+    store = _instagram_redis()
+    if not fernet or not store:
+        return None
+    try:
+        value = store.get("dali:instagram:owner")
+        return json.loads(fernet.decrypt(value.encode("utf-8")).decode("utf-8")) if value else None
+    except Exception:
+        return None
+
+def _instagram_state():
+    stamp = str(int(datetime.now(timezone.utc).timestamp()))
+    raw = (INSTAGRAM_OWNER_KEY + ":" + stamp).encode("utf-8")
+    sig = hmac.new(INSTAGRAM_APP_SECRET.encode("utf-8"), raw, hashlib.sha256).hexdigest()
+    return stamp + "." + sig
+
+def _instagram_verify_state(state):
+    try:
+        stamp, sig = str(state or "").split(".", 1)
+        if abs(int(datetime.now(timezone.utc).timestamp()) - int(stamp)) > 600:
+            return False
+        raw = (INSTAGRAM_OWNER_KEY + ":" + stamp).encode("utf-8")
+        expected = hmac.new(INSTAGRAM_APP_SECRET.encode("utf-8"), raw, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected)
+    except Exception:
+        return False
+
+def _instagram_redirect_uri():
+    return INSTAGRAM_REDIRECT_URI or (APP_ORIGIN + "/api/instagram/callback")
+
+def _instagram_url(path):
+    return "https://graph.facebook.com/" + INSTAGRAM_GRAPH_VERSION + "/" + str(path).lstrip("/")
+
+def _instagram_get(path, token, params=None):
+    query = dict(params or {})
+    query["access_token"] = token
+    url = _instagram_url(path) + "?" + urllib.parse.urlencode(query)
+    req = urllib_request.Request(url, headers={"User-Agent": "DaliAI-InstagramAgent/1.0"})
+    with urllib_request.urlopen(req, timeout=30) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+def _instagram_post(path, token, data):
+    payload = dict(data or {})
+    payload["access_token"] = token
+    req = urllib_request.Request(
+        _instagram_url(path),
+        data=urllib.parse.urlencode(payload).encode("utf-8"),
+        headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "DaliAI-InstagramAgent/1.0"},
+        method="POST"
+    )
+    with urllib_request.urlopen(req, timeout=45) as response:
+        return json.loads(response.read().decode("utf-8"))
+
 
 def normalize_voice_language(value):
     """Normalize browser BCP-47 voice codes to XTTS language codes."""
