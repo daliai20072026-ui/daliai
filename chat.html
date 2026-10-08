@@ -54,10 +54,11 @@
     <script>
         window.MathJax = {
             tex: {
-                inlineMath: [["\\(", "\\)"]],
-                displayMath: [["\\[", "\\]"], ["$" + "$", "$" + "$"]],
+                inlineMath: [["\\(", "\\)"], ["$", "$"]],
+                displayMath: [["\\[", "\\]"], ["$", "$"]],
                 processEscapes: false,
-                processEnvironments: true
+                processEnvironments: true,
+            packages: { "[+]": ["ams"] }
             },
             options: {
                 skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
@@ -551,7 +552,7 @@
 
     <script
         defer
-        src="./chat.js?v=55">
+        src="./chat.js?v=56">
     </script>
 
 
