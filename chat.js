@@ -1208,7 +1208,7 @@ async function prepareImageForVercel(file) {
     }
 }
 
-async function selectFile(file) {
+async async function selectFile(file) {
     if (!file) return;
     const selectionToken = ++fileSelectionToken;
 
@@ -1664,7 +1664,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=42").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=43").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
