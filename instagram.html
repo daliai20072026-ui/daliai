@@ -1,9 +1,110 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Dali AI — Private Instagram Agent</title><link rel="stylesheet" href="./instagram.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><title>Dali AI — Private Instagram Agent</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#080b12;color:#f7f8fb}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#18223a,transparent 45%),#080b12}.agent-shell{width:min(760px,100%);margin:auto;padding:28px 18px 60px}.hero{padding:24px 4px 18px}.badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;opacity:.7;margin-bottom:10px}.hero h1{margin:0 0 10px;font-size:clamp(30px,7vw,52px);line-height:1.02}.hero p{margin:0;max-width:620px;color:#aeb6c7;line-height:1.6}.card{margin-top:16px;padding:20px;border:1px solid #252c3a;border-radius:20px;background:rgba(18,23,34,.88);box-shadow:0 18px 50px rgba(0,0,0,.18)}h2{margin:0 0 16px;font-size:20px}.status-row{display:flex;align-items:center;gap:10px}.dot{width:10px;height:10px;border-radius:50%;background:#70798a}.dot.ok{background:#39d98a;box-shadow:0 0 14px #39d98a}.muted,.hint{color:#9ba5b7}.hint{font-size:12px;line-height:1.5}.card label{display:block;margin:14px 0 7px;font-size:13px;color:#c5ccda}.card label span{opacity:.55}input,textarea{width:100%;border:1px solid #30384a;background:#0c111b;color:#fff;border-radius:13px;padding:13px 14px;font:inherit;outline:none}input:focus,textarea:focus{border-color:#687cff}textarea{resize:vertical;min-height:120px}.primary{width:100%;margin-top:14px;border:0;border-radius:13px;padding:13px 16px;font:600 14px Inter,system-ui,sans-serif;background:#f4f6ff;color:#10131a;cursor:pointer}.primary:disabled{opacity:.4;cursor:not-allowed}.result{min-height:20px;font-size:13px;line-height:1.5}.pill{display:inline-flex;border-radius:999px;padding:8px 12px;background:#202838;color:#c7d0e0;font-size:12px}@media(max-width:520px){.agent-shell{padding:18px 12px 44px}.card{border-radius:16px;padding:16px}.hero{padding:18px 2px 12px}}
+</style></head>
 <body><main class="agent-shell">
 <header class="hero"><div class="badge">DALI AI</div><h1>Private Instagram Agent</h1><p>Connect only your own professional Instagram account. Dali AI can prepare captions and publish for you.</p></header>
 <section class="card"><div class="status-row"><span id="dot" class="dot"></span><strong id="status">Checking connection…</strong></div><p id="account" class="muted">No Instagram account connected.</p><div id="connectBox"><label for="ownerKey">Private owner key</label><input id="ownerKey" type="password" autocomplete="off" placeholder="Enter your private Dali owner key"><button id="connect" class="primary">Connect Instagram with Facebook</button><p class="hint">Your key is sent only to Dali AI to authorize your private connection.</p></div></section>
 <section class="card"><h2>Publish a post</h2><label for="imageUrl">Public HTTPS image URL</label><input id="imageUrl" type="url" placeholder="https://…/image.jpg"><label for="caption">Caption <span>(optional)</span></label><textarea id="caption" rows="6" placeholder="Leave empty and Dali AI will generate the caption."></textarea><button id="publish" class="primary" disabled>Publish to my Instagram</button><p id="result" class="result" aria-live="polite"></p></section>
 <section class="card automation"><h2>Daily automation</h2><p>The scheduler runs daily at <strong>09:00 UTC</strong>. It creates a topic-specific caption, rotates through your configured public image URLs, and uses Redis to prevent duplicate posts if the scheduled request is retried.</p><p class="hint">To enable it, configure Meta credentials, REDIS_URL, CRON_SECRET, INSTAGRAM_AUTO_POST_ENABLED=true, and public HTTPS image URLs in INSTAGRAM_DAILY_IMAGE_URLS (comma-separated) or INSTAGRAM_DEFAULT_IMAGE_URL. Reconnect Instagram after Redis is configured so the account token is stored securely.</p><div class="pill" id="automationStatus">Checking setup…</div></section>
-</main><script src="./instagram.js" defer></script></body></html>
+</main><script>
+const $ = (id) => document.getElementById(id);
+
+async function readJson(response) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Instagram request failed.");
+  return data;
+}
+
+function setStatus(connected, text) {
+  const dot = $("dot");
+  const status = $("status");
+  if (dot) dot.classList.toggle("ok", !!connected);
+  if (status) status.textContent = text;
+}
+
+async function refreshStatus() {
+  try {
+    const data = await readJson(await fetch("/api/instagram/status", {
+      credentials: "same-origin",
+      cache: "no-store"
+    }));
+    if (data.connected) {
+      setStatus(true, "Instagram connected");
+      $("account").textContent = data.username ? "@" + data.username : "Your Instagram Professional account is connected.";
+      $("publish").disabled = false;
+      const automation = $("automationStatus");
+      if (data.daily_ready) {
+        automation.textContent = "Daily auto-post ready · 09:00 UTC · " + data.daily_image_count + " image source(s)";
+        automation.classList.add("ready");
+      } else if (!data.persistent_storage) {
+        automation.textContent = "Setup needed: connect Redis for secure daily automation";
+        automation.classList.remove("ready");
+      } else if (!data.daily_image_count) {
+        automation.textContent = "Setup needed: add a public HTTPS image URL";
+        automation.classList.remove("ready");
+      } else if (!data.auto_post_enabled) {
+        automation.textContent = "Daily posting is OFF · enable INSTAGRAM_AUTO_POST_ENABLED";
+        automation.classList.remove("ready");
+      } else {
+        automation.textContent = "Daily automation needs configuration";
+        automation.classList.remove("ready");
+      }
+      $("connectBox").hidden = true;
+    } else {
+      setStatus(false, data.configured ? "Not connected" : "Agent needs configuration");
+      $("account").textContent = data.error || "Connect your Instagram account to continue.";
+      $("publish").disabled = true;
+      $("automationStatus").textContent = "Automation not connected";
+    }
+  } catch (error) {
+    setStatus(false, "Connection check failed");
+    $("account").textContent = error.message;
+    $("publish").disabled = true;
+  }
+}
+
+$("connect")?.addEventListener("click", () => {
+  const key = $("ownerKey")?.value.trim();
+  if (!key) {
+    $("account").textContent = "Enter your private owner key first.";
+    return;
+  }
+  const url = "/api/instagram/connect?key=" + encodeURIComponent(key);
+  window.location.assign(url);
+});
+
+$("publish")?.addEventListener("click", async () => {
+  const button = $("publish");
+  const result = $("result");
+  const imageUrl = $("imageUrl")?.value.trim();
+  const caption = $("caption")?.value.trim();
+
+  if (!imageUrl) {
+    result.textContent = "Add a public HTTPS image URL.";
+    return;
+  }
+
+  button.disabled = true;
+  result.textContent = "Publishing…";
+
+  try {
+    const data = await readJson(await fetch("/api/instagram/publish", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({image_url: imageUrl, caption})
+    }));
+    result.textContent = "Published successfully.";
+    if (data.caption && !$("caption").value.trim()) $("caption").value = data.caption;
+  } catch (error) {
+    result.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+refreshStatus();
+</script></body></html>
