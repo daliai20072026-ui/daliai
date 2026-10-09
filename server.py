@@ -1611,13 +1611,17 @@ def _instagram_publish_image(record, image_url, caption):
     if not container_id:
         raise RuntimeError("Instagram did not create a media container")
     import time
+    finished = False
     for _ in range(12):
         status = _instagram_get(container_id, record["page_access_token"], {"fields": "status_code,status"})
         if status.get("status_code") == "FINISHED":
+            finished = True
             break
         if status.get("status_code") == "ERROR":
             raise RuntimeError(status.get("status") or "Instagram media processing failed")
         time.sleep(2)
+    if not finished:
+        raise RuntimeError("Instagram media is still processing; retry the post later")
     result = _instagram_post(record["ig_user_id"] + "/media_publish", record["page_access_token"], {"creation_id": container_id})
     return result.get("id")
 
