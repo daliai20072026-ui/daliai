@@ -1562,7 +1562,7 @@ def instagram_status():
         return jsonify({"connected": False, "configured": bool(INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET and INSTAGRAM_OWNER_KEY), "persistent_storage": bool(_instagram_redis())})
     try:
         profile = _instagram_get(record["ig_user_id"], record["page_access_token"], {"fields": "id,username,account_type"})
-        return jsonify({"connected": True, "username": profile.get("username", record.get("username", "")), "account_type": profile.get("account_type", "UNKNOWN"), "ig_user_id": record["ig_user_id"], "persistent_storage": bool(_instagram_load()), "auto_post_enabled": INSTAGRAM_AUTO_POST_ENABLED, "daily_schedule_utc": "09:00", "daily_image_count": len(INSTAGRAM_DAILY_IMAGE_URLS) or (1 if INSTAGRAM_DEFAULT_IMAGE_URL else 0), "daily_ready": bool(INSTAGRAM_AUTO_POST_ENABLED and _instagram_load() and (INSTAGRAM_DAILY_IMAGE_URLS or INSTAGRAM_DEFAULT_IMAGE_URL) and _instagram_redis())})
+        return jsonify({"connected": True, "username": profile.get("username", record.get("username", "")), "account_type": profile.get("account_type", "UNKNOWN"), "ig_user_id": record["ig_user_id"], "persistent_storage": bool(_instagram_load()), "auto_post_enabled": INSTAGRAM_AUTO_POST_ENABLED, "daily_schedule_utc": "09:00", "daily_image_count": len(INSTAGRAM_DAILY_IMAGE_URLS) or (1 if INSTAGRAM_DEFAULT_IMAGE_URL else 0), "daily_ready": bool(INSTAGRAM_AUTO_POST_ENABLED and _instagram_load() and (INSTAGRAM_DAILY_IMAGE_URLS or INSTAGRAM_DEFAULT_IMAGE_URL) and all(url.startswith("https://") for url in (INSTAGRAM_DAILY_IMAGE_URLS or [INSTAGRAM_DEFAULT_IMAGE_URL]) if url) and _instagram_redis() and os.getenv("CRON_SECRET", "").strip())})
     except Exception:
         return jsonify({"connected": False, "error": "Instagram connection needs to be renewed."})
 
@@ -1686,7 +1686,8 @@ def instagram_cron():
         previous = store.get(published_key)
         if previous:
             return jsonify({"ok": True, "skipped": True, "reason": "Today post already published.", "media_id": previous})
-        acquired = store.set(lock_key, secrets.token_urlsafe(12), nx=True, ex=1800)
+        lock_token = secrets.token_urlsafe(18)
+        acquired = store.set(lock_key, lock_token, nx=True, ex=1800)
         if not acquired:
             return jsonify({"ok": True, "skipped": True, "reason": "Today publishing job is already running."}), 202
         try:
@@ -1700,7 +1701,9 @@ def instagram_cron():
             store.set(published_key, str(media_id), ex=259200)
             return jsonify({"ok": True, "media_id": media_id, "date_utc": day_key, "image_rotation_count": len(INSTAGRAM_DAILY_IMAGE_URLS) or 1})
         finally:
-            store.delete(lock_key)
+            # Never delete a lock that may have expired and been acquired by a retry.
+            if store.get(lock_key) == lock_token:
+                store.delete(lock_key)
     except Exception as error:
         app.logger.error("Instagram scheduled publish failed (token/content not logged).")
         return jsonify({"error": _instagram_public_error(error)}), 502
