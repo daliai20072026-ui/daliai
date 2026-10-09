@@ -214,6 +214,7 @@ INSTAGRAM_REDIRECT_URI = os.getenv("INSTAGRAM_REDIRECT_URI", "").strip()
 INSTAGRAM_PAGE_ACCESS_TOKEN = os.getenv("INSTAGRAM_PAGE_ACCESS_TOKEN", "").strip()
 INSTAGRAM_ALLOWED_IG_USER_ID = os.getenv("INSTAGRAM_ALLOWED_IG_USER_ID", "").strip()
 INSTAGRAM_DEFAULT_IMAGE_URL = os.getenv("INSTAGRAM_DEFAULT_IMAGE_URL", "").strip()
+INSTAGRAM_DAILY_IMAGE_URLS = [item.strip() for item in os.getenv("INSTAGRAM_DAILY_IMAGE_URLS", "").split(",") if item.strip()]
 INSTAGRAM_AUTO_POST_ENABLED = os.getenv("INSTAGRAM_AUTO_POST_ENABLED", "false").strip().lower() == "true"
 INSTAGRAM_TOKEN_COOKIE = "dali_ig_session"
 
@@ -1561,17 +1562,46 @@ def instagram_status():
         return jsonify({"connected": False, "configured": bool(INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET and INSTAGRAM_OWNER_KEY), "persistent_storage": bool(_instagram_redis())})
     try:
         profile = _instagram_get(record["ig_user_id"], record["page_access_token"], {"fields": "id,username,account_type"})
-        return jsonify({"connected": True, "username": profile.get("username", record.get("username", "")), "account_type": profile.get("account_type", "UNKNOWN"), "ig_user_id": record["ig_user_id"], "persistent_storage": bool(_instagram_load()), "auto_post_enabled": INSTAGRAM_AUTO_POST_ENABLED})
+        return jsonify({"connected": True, "username": profile.get("username", record.get("username", "")), "account_type": profile.get("account_type", "UNKNOWN"), "ig_user_id": record["ig_user_id"], "persistent_storage": bool(_instagram_load()), "auto_post_enabled": INSTAGRAM_AUTO_POST_ENABLED, "daily_schedule_utc": "09:00", "daily_image_count": len(INSTAGRAM_DAILY_IMAGE_URLS) or (1 if INSTAGRAM_DEFAULT_IMAGE_URL else 0), "daily_ready": bool(INSTAGRAM_AUTO_POST_ENABLED and _instagram_load() and (INSTAGRAM_DAILY_IMAGE_URLS or INSTAGRAM_DEFAULT_IMAGE_URL) and _instagram_redis())})
     except Exception:
         return jsonify({"connected": False, "error": "Instagram connection needs to be renewed."})
 
-def _generate_instagram_caption():
+def _instagram_daily_topic(day):
+    topics = [
+        "AI study companion: help students understand difficult topics",
+        "math made easier: step-by-step problem solving",
+        "coding helper: explain errors and debug thoughtfully",
+        "science and physics: make complex ideas feel simple",
+        "productivity: brainstorm, plan, and write more clearly",
+        "multilingual AI: work across Arabic, French, and English",
+        "Dali AI product spotlight: practical everyday AI use cases",
+    ]
+    return topics[day.weekday()]
+
+def _instagram_daily_image_for(day):
+    images = INSTAGRAM_DAILY_IMAGE_URLS or ([INSTAGRAM_DEFAULT_IMAGE_URL] if INSTAGRAM_DEFAULT_IMAGE_URL else [])
+    if not images:
+        return ""
+    return images[day.toordinal() % len(images)]
+
+def _generate_instagram_caption(day=None):
+    day = day or datetime.now(timezone.utc).date()
+    topic = _instagram_daily_topic(day)
+    prompt = (
+        "Write a distinct, polished English Instagram feed caption for Dali AI. Today topic: " + topic + ". "
+        "Use a concise hook, 1-3 useful lines, and a gentle question or call to action. "
+        "Include 3-5 relevant hashtags, including #DaliAI. Do not claim unverified features. "
+        "Avoid generic repeated openings. Return only the caption, no commentary. Date: " + day.isoformat() + "."
+    )
     response = client.chat.completions.create(messages=[
-        {"role": "system", "content": "You write concise Instagram captions for Dali AI."},
-        {"role": "user", "content": "Create one polished English Instagram caption about Dali AI helping with AI, study, math, physics, science, coding and productivity. Include 3-5 relevant hashtags. Return only the caption."}
+        {"role": "system", "content": "You write social captions for Dali AI. Never claim an unverified feature or result."},
+        {"role": "user", "content": prompt}
     ], model=G4F_MODEL)
     answer = response.choices[0].message.content if response and getattr(response, "choices", None) else ""
-    return clean_ai_response(answer)[:2200]
+    answer = clean_ai_response(answer)[:2200].strip()
+    if not answer:
+        raise RuntimeError("Caption generation returned an empty result")
+    return answer
 
 def _instagram_publish_image(record, image_url, caption):
     if not image_url.startswith("https://"):
@@ -1618,13 +1648,38 @@ def instagram_cron():
         return jsonify({"error": "Unauthorized."}), 401
     if not INSTAGRAM_AUTO_POST_ENABLED:
         return jsonify({"ok": True, "skipped": True, "reason": "Auto-posting disabled."})
+    store = _instagram_redis()
+    if not store:
+        return jsonify({"error": "Daily automation requires REDIS_URL for persistent locking and duplicate protection."}), 503
     record = _instagram_load()
     if not record:
-        return jsonify({"error": "No persistent Instagram connection is configured."}), 503
+        return jsonify({"error": "No persistent Instagram connection is configured. Reconnect Instagram after configuring Redis."}), 503
+    today = datetime.now(timezone.utc).date()
+    day_key = today.isoformat()
+    published_key = "dali:instagram:published:" + day_key
+    lock_key = "dali:instagram:lock:" + day_key
+    image_url = _instagram_daily_image_for(today)
+    if not image_url or not image_url.startswith("https://"):
+        return jsonify({"error": "Configure public HTTPS images in INSTAGRAM_DEFAULT_IMAGE_URL or INSTAGRAM_DAILY_IMAGE_URLS."}), 503
     try:
-        caption = _generate_instagram_caption()
-        media_id = _instagram_publish_image(record, INSTAGRAM_DEFAULT_IMAGE_URL, caption)
-        return jsonify({"ok": True, "media_id": media_id})
+        previous = store.get(published_key)
+        if previous:
+            return jsonify({"ok": True, "skipped": True, "reason": "Today post already published.", "media_id": previous})
+        acquired = store.set(lock_key, secrets.token_urlsafe(12), nx=True, ex=1800)
+        if not acquired:
+            return jsonify({"ok": True, "skipped": True, "reason": "Today publishing job is already running."}), 202
+        try:
+            previous = store.get(published_key)
+            if previous:
+                return jsonify({"ok": True, "skipped": True, "reason": "Today post already published.", "media_id": previous})
+            caption = _generate_instagram_caption(today)
+            media_id = _instagram_publish_image(record, image_url, caption)
+            if not media_id:
+                raise RuntimeError("Instagram returned no published media ID")
+            store.set(published_key, str(media_id), ex=259200)
+            return jsonify({"ok": True, "media_id": media_id, "date_utc": day_key, "image_rotation_count": len(INSTAGRAM_DAILY_IMAGE_URLS) or 1})
+        finally:
+            store.delete(lock_key)
     except Exception as error:
         app.logger.error("Instagram scheduled publish failed (token/content not logged).")
         return jsonify({"error": _instagram_public_error(error)}), 502
