@@ -23,9 +23,23 @@ async function refreshStatus() {
       setStatus(true, "Instagram connected");
       $("account").textContent = data.username ? "@" + data.username : "Your Instagram Professional account is connected.";
       $("publish").disabled = false;
-      $("automationStatus").textContent = data.auto_post_enabled
-        ? "Daily automation enabled"
-        : "Manual publishing ready";
+      const automation = $("automationStatus");
+      if (data.daily_ready) {
+        automation.textContent = "Daily auto-post ready · 09:00 UTC · " + data.daily_image_count + " image source(s)";
+        automation.classList.add("ready");
+      } else if (!data.persistent_storage) {
+        automation.textContent = "Setup needed: connect Redis for secure daily automation";
+        automation.classList.remove("ready");
+      } else if (!data.daily_image_count) {
+        automation.textContent = "Setup needed: add a public HTTPS image URL";
+        automation.classList.remove("ready");
+      } else if (!data.auto_post_enabled) {
+        automation.textContent = "Daily posting is OFF · enable INSTAGRAM_AUTO_POST_ENABLED";
+        automation.classList.remove("ready");
+      } else {
+        automation.textContent = "Daily automation needs configuration";
+        automation.classList.remove("ready");
+      }
       $("connectBox").hidden = true;
     } else {
       setStatus(false, data.configured ? "Not connected" : "Agent needs configuration");
