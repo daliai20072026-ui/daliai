@@ -1584,6 +1584,20 @@ def _instagram_daily_image_for(day):
         return ""
     return images[day.toordinal() % len(images)]
 
+def _instagram_fallback_caption(day):
+    """Return a prewritten, topic-specific caption if the AI provider is down."""
+    captions = [
+        "Big goals start with one good question. 📚\\n\\nExplore difficult topics, simplify lessons, and study with more confidence using Dali AI.\\n\\nWhat are you learning today?\\n\\n#DaliAI #StudySmarter #AIForLearning #EdTech",
+        "Math is easier when you understand the steps, not just the answer. 🧠✨\\n\\nUse Dali AI to explore concepts and work through problems one step at a time.\\n\\n#DaliAI #MathHelp #StudyTips #LearnWithAI",
+        "Build, test, learn, repeat. 💻\\n\\nDali AI can help you explore code, understand errors, and keep moving on your next project.\\n\\n#DaliAI #Coding #AITools #BuildWithAI",
+        "Stay curious. Ask better questions. Discover more. 🔬🌍\\n\\nExplore science and physics concepts with Dali AI, one question at a time.\\n\\n#DaliAI #Science #Physics #Curiosity",
+        "Your next idea deserves a clear plan. ✨\\n\\nBrainstorm, write, and organize your thoughts with Dali AI as your everyday AI companion.\\n\\n#DaliAI #Productivity #AICompanion #DigitalTools",
+        "Learn and create in the language that feels right for you. 🌍\\n\\nDali AI supports conversations in Arabic, French, and English.\\n\\n#DaliAI #MultilingualAI #ArtificialIntelligence #LearnWithAI",
+        "One AI companion. More ways to learn, create, and explore. 🚀\\n\\nDiscover practical ways to use Dali AI for study, writing, coding, and everyday questions.\\n\\n#DaliAI #AITools #Innovation #EverydayAI",
+    ]
+    return captions[day.weekday() % len(captions)]
+
+
 def _generate_instagram_caption(day=None):
     day = day or datetime.now(timezone.utc).date()
     topic = _instagram_daily_topic(day)
@@ -1593,15 +1607,18 @@ def _generate_instagram_caption(day=None):
         "Include 3-5 relevant hashtags, including #DaliAI. Do not claim unverified features. "
         "Avoid generic repeated openings. Return only the caption, no commentary. Date: " + day.isoformat() + "."
     )
-    response = client.chat.completions.create(messages=[
-        {"role": "system", "content": "You write social captions for Dali AI. Never claim an unverified feature or result."},
-        {"role": "user", "content": prompt}
-    ], model=G4F_MODEL)
-    answer = response.choices[0].message.content if response and getattr(response, "choices", None) else ""
-    answer = clean_ai_response(answer)[:2200].strip()
-    if not answer:
-        raise RuntimeError("Caption generation returned an empty result")
-    return answer
+    try:
+        response = client.chat.completions.create(messages=[
+            {"role": "system", "content": "You write social captions for Dali AI. Never claim an unverified feature or result."},
+            {"role": "user", "content": prompt}
+        ], model=G4F_MODEL)
+        answer = response.choices[0].message.content if response and getattr(response, "choices", None) else ""
+        answer = clean_ai_response(answer)[:2200].strip()
+        if answer:
+            return answer
+    except Exception:
+        app.logger.warning("Instagram AI caption generation failed; using the built-in daily caption fallback.")
+    return _instagram_fallback_caption(day)
 
 def _instagram_publish_image(record, image_url, caption):
     if not image_url.startswith("https://"):
