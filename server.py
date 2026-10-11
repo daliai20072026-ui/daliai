@@ -152,7 +152,9 @@ limiter = Limiter(
 # =========================================================
 # Uses G4F's hosted Gemini-compatible endpoint. The hosted provider may
 # change availability/rate limits; it does not require GEMINI_API_KEY.
-GEMINI_TIMEOUT_SECONDS = 24
+# G4F hosted Gemini can be slower during cold starts; stay within the
+# serverless request budget while allowing a little more time.
+GEMINI_TIMEOUT_SECONDS = 50
 G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini"
 G4F_GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -192,10 +194,19 @@ def _gemini_generate(messages, model=None, image_data_uris=None):
         with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
             result = json.loads(response.read().decode("utf-8"))
     except urllib_error.HTTPError as error:
-        detail = error.read(1000).decode("utf-8", errors="replace")
-        raise RuntimeError("G4F Gemini provider returned HTTP " + str(error.code) + ": " + detail) from error
+        detail = error.read(500).decode("utf-8", errors="replace")
+        # Do not expose provider response bodies to end users or logs; they may
+        # contain request metadata. Keep the status code for diagnosis.
+        raise RuntimeError("G4F Gemini provider returned HTTP " + str(error.code)) from error
+    except urllib_error.URLError as error:
+        reason = getattr(error, "reason", None)
+        if isinstance(reason, TimeoutError):
+            raise TimeoutError("G4F Gemini provider timed out.") from error
+        raise RuntimeError("G4F Gemini provider connection failed.") from error
     except TimeoutError as error:
         raise TimeoutError("G4F Gemini provider timed out.") from error
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise RuntimeError("G4F Gemini provider returned invalid JSON.") from error
 
     choices = result.get("choices") or []
     if not choices:
@@ -1236,7 +1247,11 @@ def chat():
             answer = _gemini_generate(messages, selected_model, image_data_uris)
             active_model_tier = "normal"
         except Exception as provider_error:
-            app.logger.error("Gemini Flash request failed (%s).", type(provider_error).__name__)
+            app.logger.error(
+                "G4F Gemini Flash request failed (%s): %s",
+                type(provider_error).__name__,
+                str(provider_error)[:180]
+            )
             raise RuntimeError("Gemini Flash is temporarily unavailable. Please try again shortly.") from provider_error
 
         answer = clean_ai_response(answer)
