@@ -7,6 +7,7 @@ const newChatBtn = document.getElementById("newChatBtn");
 const clearChatBtn = document.getElementById("clearChatBtn");
 const history = document.getElementById("history");
 const modeBadge = document.getElementById("modeBadge");
+const aiModelSelect = document.getElementById("aiModelSelect");
 const imageBtn = document.getElementById("imageBtn");
 const imageInput = document.getElementById("imageInput");
 const attachmentMenu = document.getElementById("attachmentMenu");
@@ -1504,6 +1505,7 @@ async function sendMessage() {
             const formData = new FormData();
             formData.append("message", sendText);
             formData.append("history", JSON.stringify(contextBeforeTurn));
+            formData.append("model", aiModelSelect?.value === "normal" ? "normal" : "pro");
 
             if (attachments.length) {
                 attachments.forEach(item => {
@@ -1522,7 +1524,8 @@ async function sendMessage() {
         } else {
             const body = {
                 message: sendText,
-                history: contextBeforeTurn
+                history: contextBeforeTurn,
+                model: aiModelSelect?.value === "normal" ? "normal" : "pro"
             };
 
             options = {
@@ -1574,6 +1577,9 @@ async function sendMessage() {
 
         rememberTurn(rememberedUser, reply);
         updateMode(data.mode || "general");
+        if (aiModelSelect && ["normal", "pro"].includes(data.model)) {
+            aiModelSelect.value = data.model;
+        }
     } catch (error) {
         if (loadingStageTimer) {
             clearTimeout(loadingStageTimer);
@@ -1738,7 +1744,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=50").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=51").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
