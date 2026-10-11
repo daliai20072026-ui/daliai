@@ -7,7 +7,6 @@ const newChatBtn = document.getElementById("newChatBtn");
 const clearChatBtn = document.getElementById("clearChatBtn");
 const history = document.getElementById("history");
 const modeBadge = document.getElementById("modeBadge");
-const aiModelSelect = document.getElementById("aiModelSelect");
 const imageBtn = document.getElementById("imageBtn");
 const imageInput = document.getElementById("imageInput");
 const attachmentMenu = document.getElementById("attachmentMenu");
@@ -1505,7 +1504,7 @@ async function sendMessage() {
             const formData = new FormData();
             formData.append("message", sendText);
             formData.append("history", JSON.stringify(contextBeforeTurn));
-            formData.append("model", aiModelSelect?.value === "normal" ? "normal" : "pro");
+            formData.append("model", "normal");
 
             if (attachments.length) {
                 attachments.forEach(item => {
@@ -1525,7 +1524,7 @@ async function sendMessage() {
             const body = {
                 message: sendText,
                 history: contextBeforeTurn,
-                model: aiModelSelect?.value === "normal" ? "normal" : "pro"
+                model: "normal"
             };
 
             options = {
@@ -1577,9 +1576,6 @@ async function sendMessage() {
 
         rememberTurn(rememberedUser, reply);
         updateMode(data.mode || "general");
-        if (aiModelSelect && ["normal", "pro"].includes(data.model)) {
-            aiModelSelect.value = data.model;
-        }
     } catch (error) {
         if (loadingStageTimer) {
             clearTimeout(loadingStageTimer);
