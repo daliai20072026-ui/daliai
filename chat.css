@@ -6429,3 +6429,75 @@ button { -webkit-tap-highlight-color: transparent; }
         padding: 17px 15px 18px;
     }
 }
+
+
+/* Multi-attachment gallery: show every selected image before sending. */
+.attachment-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 4px 44px 4px 4px;
+    box-sizing: border-box;
+}
+.attachment-gallery-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 76px;
+    min-width: 0;
+    color: var(--text-secondary, #aeb7c6);
+    font-size: 11px;
+    text-align: center;
+}
+.attachment-thumbnail {
+    display: block;
+    width: 68px;
+    height: 68px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.04);
+}
+.attachment-file-icon {
+    display: grid;
+    place-items: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.05);
+    font-size: 24px;
+}
+.attachment-gallery-name {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.message-image-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    max-width: 100%;
+}
+.message-image-gallery .message-image {
+    display: block;
+    width: auto;
+    max-width: min(100%, 260px);
+    max-height: 280px;
+    object-fit: contain;
+    border-radius: 12px;
+}
+@media (max-width: 430px) {
+    .attachment-gallery { gap: 7px; padding-right: 38px; }
+    .attachment-gallery-item { width: 64px; font-size: 10px; }
+    .attachment-thumbnail, .attachment-file-icon { width: 58px; height: 58px; }
+    .message-image-gallery .message-image { max-width: 100%; max-height: 240px; }
+}
