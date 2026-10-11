@@ -1586,17 +1586,33 @@ if (imageBtn && attachmentMenu) {
     });
 }
 
-attachmentOptions.forEach(option => {
-    option.addEventListener("click", () => {
-        const accept = option.dataset.accept || "*/*";
+function openFilePicker(accept = "*/*") {
+    if (!imageInput) return;
 
-        if (imageInput) {
-            imageInput.accept = accept;
-            imageInput.value = "";
-            imageInput.click();
+    // Keep the picker call synchronous with the user's tap (important on
+    // Android/iOS browsers), and clear the previous value so the same file
+    // can be selected again after removing or re-uploading it.
+    imageInput.accept = accept;
+    imageInput.value = "";
+    setAttachmentMenu(false);
+
+    try {
+        if (typeof imageInput.showPicker === "function") {
+            imageInput.showPicker();
+            return;
         }
+    } catch (error) {
+        // Some mobile browsers expose showPicker() but block it; use click().
+    }
 
-        setAttachmentMenu(false);
+    imageInput.click();
+}
+
+attachmentOptions.forEach(option => {
+    option.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openFilePicker(option.dataset.accept || "*/*");
     });
 });
 
@@ -1612,14 +1628,24 @@ document.addEventListener("click", event => {
 });
 
 if (imageInput) {
-    imageInput.addEventListener("change", () => {
-        const file = imageInput.files?.[0];
-
-        if (file) {
-            selectFile(file);
-        }
+    imageInput.addEventListener("change", async () => {
+        // This control intentionally accepts one attachment per message.
+        const file = imageInput.files && imageInput.files.length
+            ? imageInput.files.item(0)
+            : null;
 
         setAttachmentMenu(false);
+        if (!file) return;
+
+        try {
+            await selectFile(file);
+        } catch (error) {
+            console.error("File selection failed:", error);
+            addMessage(
+                error?.message || "Could not select this file. Please try again.",
+                "ai-message"
+            );
+        }
     });
 }
 
