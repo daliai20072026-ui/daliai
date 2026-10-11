@@ -1738,7 +1738,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=49").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=50").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
