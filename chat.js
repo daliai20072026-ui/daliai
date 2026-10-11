@@ -845,12 +845,20 @@ function addMessage(text, type, imageUrl = null, fileName = null) {
     }
 
     if (imageUrl && type === "user-message") {
-        const image = document.createElement("img");
-        image.src = imageUrl;
-        image.alt = "Attached image";
-        image.className = "message-image";
-        image.loading = "lazy";
-        content.appendChild(image);
+        const imageUrls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
+        const gallery = document.createElement("div");
+        gallery.className = "message-image-gallery";
+        imageUrls.filter(Boolean).forEach((url, index) => {
+            const image = document.createElement("img");
+            image.src = url;
+            image.alt = imageUrls.length > 1
+                ? "Attached image " + (index + 1)
+                : "Attached image";
+            image.className = "message-image";
+            image.loading = "lazy";
+            gallery.appendChild(image);
+        });
+        if (gallery.childElementCount) content.appendChild(gallery);
     }
 
     message.appendChild(content);
@@ -1269,41 +1277,13 @@ async function selectFile(file) {
 
         if (previewImage) {
             previewImage.onload = null;
-            previewImage.onerror = () => {
-                previewImage.removeAttribute("src");
-                previewImage.style.display = "none";
-
-                const previewStatus = imagePreview?.querySelector(".image-preview-status");
-                if (previewStatus) {
-                    previewStatus.textContent =
-                        "Preview unavailable — the image will still be sent.";
-                }
-            };
-
-            selectedImageObjectUrl = URL.createObjectURL(file);
-            previewImage.src = selectedImageObjectUrl;
-            previewImage.style.display = "block";
-            previewImage.alt = file.name || "Selected image";
+            previewImage.onerror = null;
+            previewImage.removeAttribute("src");
+            previewImage.style.display = "none";
         }
 
-        if (filePreviewInfo) {
-            filePreviewInfo.style.display = "none";
-        }
-
-        if (imagePreview) {
-            imagePreview.style.display = "flex";
-
-            let previewStatus =
-                imagePreview.querySelector(".image-preview-status");
-
-            if (!previewStatus) {
-                previewStatus = document.createElement("span");
-                previewStatus.className = "image-preview-status";
-                imagePreview.appendChild(previewStatus);
-            }
-
-            previewStatus.textContent = "";
-        }
+        if (filePreviewInfo) filePreviewInfo.style.display = "none";
+        if (imagePreview) imagePreview.style.display = "flex";
 
         const dataUrl = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -1371,12 +1351,54 @@ async function selectFile(file) {
 
 function updateAttachmentPreview() {
     if (!selectedAttachments.length) return;
+
     const names = selectedAttachments.map(item => item.file?.name || "Attachment");
     if (filePreviewName) filePreviewName.textContent = names.join(", ");
-    if (filePreviewIcon) filePreviewIcon.textContent = selectedAttachments.length > 1
-        ? "📎 " + selectedAttachments.length
-        : getFileIcon(names[0]);
-    if (filePreviewInfo) filePreviewInfo.style.display = "flex";
+    if (filePreviewIcon) {
+        filePreviewIcon.textContent = selectedAttachments.length > 1
+            ? "📎 " + selectedAttachments.length
+            : getFileIcon(names[0]);
+    }
+
+    let gallery = imagePreview?.querySelector(".attachment-gallery");
+    if (imagePreview && !gallery) {
+        gallery = document.createElement("div");
+        gallery.className = "attachment-gallery";
+        gallery.setAttribute("aria-label", "Selected attachments");
+        imagePreview.insertBefore(gallery, removeImageBtn || null);
+    }
+
+    if (gallery) {
+        gallery.replaceChildren();
+        selectedAttachments.forEach((item, index) => {
+            const card = document.createElement("div");
+            card.className = "attachment-gallery-item";
+            card.title = item.file?.name || "Attachment";
+
+            if (item.kind === "image" && item.dataUrl) {
+                const thumbnail = document.createElement("img");
+                thumbnail.src = item.dataUrl;
+                thumbnail.alt = "Selected image " + (index + 1) + ": " + (item.file?.name || "");
+                thumbnail.className = "attachment-thumbnail";
+                card.appendChild(thumbnail);
+            } else {
+                const icon = document.createElement("span");
+                icon.className = "attachment-file-icon";
+                icon.textContent = getFileIcon(item.file?.name);
+                card.appendChild(icon);
+            }
+
+            const label = document.createElement("span");
+            label.className = "attachment-gallery-name";
+            label.textContent = item.file?.name || "Attachment";
+            card.appendChild(label);
+            gallery.appendChild(card);
+        });
+        gallery.style.display = "flex";
+    }
+
+    if (previewImage) previewImage.style.display = "none";
+    if (filePreviewInfo) filePreviewInfo.style.display = "none";
     if (imagePreview) imagePreview.style.display = "flex";
 }
 
@@ -1429,14 +1451,14 @@ async function sendMessage() {
     const attachments = selectedAttachments.slice();
     const imageFile = attachments.find(item => item.kind === "image")?.file || selectedImage;
     const fileFile = attachments.find(item => item.kind === "file")?.file || selectedFile;
-    const imageUrl = attachments.find(item => item.kind === "image")?.dataUrl || selectedImageUrl;
+    const imageUrls = attachments.filter(item => item.kind === "image").map(item => item.dataUrl).filter(Boolean);
     const attachmentName = attachments.map(item => item.file?.name).filter(Boolean).join(", ") || imageFile?.name || fileFile?.name || null;
     const contextBeforeTurn = getConversationHistoryForRequest();
 
     addMessage(
         sendText || "Attachment",
         "user-message",
-        imageUrl,
+        imageUrls.length ? imageUrls : null,
         attachmentName
     );
 
@@ -1539,7 +1561,9 @@ async function sendMessage() {
         addMessage(reply, "ai-message");
 
         const rememberedUser = sendText
-            || (imageFile ? "[Image attached]" : "")
+            || (attachments.some(item => item.kind === "image")
+                ? "[Images attached: " + attachments.filter(item => item.kind === "image").map(item => item.file.name).join(", ") + "]"
+                : "")
             || (fileFile ? "[File attached: " + fileFile.name + "]" : "");
 
         rememberTurn(rememberedUser, reply);
@@ -1708,7 +1732,7 @@ updateConnectionStatus();
     updateHistoryNotice();
 
     if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("./sw.js?v=45").catch(error => {
+        navigator.serviceWorker.register("./sw.js?v=49").catch(error => {
             console.warn("Dali AI offline cache unavailable:", error);
         });
     }
