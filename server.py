@@ -173,49 +173,62 @@ def _gemini_generate(messages, model=None, image_data_uris=None):
             content = parts
         openai_messages.append({"role": role, "content": content})
 
-    payload = {
-        "model": G4F_GEMINI_MODEL,
-        "messages": openai_messages,
-        "temperature": 0.7,
-        "max_tokens": 8192
-    }
-    endpoint = G4F_GEMINI_BASE_URL.rstrip("/") + "/chat/completions"
-    req = urllib_request.Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "DaliAI/1.0"
-        },
-        method="POST"
-    )
+    def request_completion(base_url, requested_model):
+        payload = {
+            "model": requested_model,
+            "messages": openai_messages,
+            "temperature": 0.7,
+            "max_tokens": 8192
+        }
+        endpoint = base_url.rstrip("/") + "/chat/completions"
+        req = urllib_request.Request(
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "DaliAI/1.0"
+            },
+            method="POST"
+        )
+        try:
+            with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except urllib_error.HTTPError as error:
+            # Do not expose upstream response bodies; retain only the status.
+            raise RuntimeError("G4F provider returned HTTP " + str(error.code)) from error
+        except urllib_error.URLError as error:
+            reason = getattr(error, "reason", None)
+            if isinstance(reason, TimeoutError):
+                raise TimeoutError("G4F provider timed out.") from error
+            raise RuntimeError("G4F provider connection failed.") from error
+        except TimeoutError as error:
+            raise TimeoutError("G4F provider timed out.") from error
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise RuntimeError("G4F provider returned invalid JSON.") from error
+        return result
+
+    # Keep Gemini as the primary provider. If the public Gemini route is
+    # unavailable (for example HTTP 402), automatically try G4F's documented
+    # provider/model router so the chat can still respond without an API key.
     try:
-        with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except urllib_error.HTTPError as error:
-        detail = error.read(500).decode("utf-8", errors="replace")
-        # Do not expose provider response bodies to end users or logs; they may
-        # contain request metadata. Keep the status code for diagnosis.
-        raise RuntimeError("G4F Gemini provider returned HTTP " + str(error.code)) from error
-    except urllib_error.URLError as error:
-        reason = getattr(error, "reason", None)
-        if isinstance(reason, TimeoutError):
-            raise TimeoutError("G4F Gemini provider timed out.") from error
-        raise RuntimeError("G4F Gemini provider connection failed.") from error
-    except TimeoutError as error:
-        raise TimeoutError("G4F Gemini provider timed out.") from error
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise RuntimeError("G4F Gemini provider returned invalid JSON.") from error
+        result = request_completion(G4F_GEMINI_BASE_URL, G4F_GEMINI_MODEL)
+    except (RuntimeError, TimeoutError) as primary_error:
+        print("G4F Gemini primary failed; trying automatic fallback: " + str(primary_error))
+        try:
+            result = request_completion("https://g4f.space/api/auto", "auto")
+        except (RuntimeError, TimeoutError) as fallback_error:
+            print("G4F automatic fallback failed: " + str(fallback_error))
+            raise RuntimeError("AI providers are temporarily unavailable. Please try again shortly.") from fallback_error
 
     choices = result.get("choices") or []
     if not choices:
-        raise RuntimeError("G4F Gemini provider returned no choices.")
+        raise RuntimeError("G4F provider returned no choices.")
     answer = (choices[0].get("message") or {}).get("content") or ""
     if isinstance(answer, list):
-        answer = "\n".join(str(part.get("text") or "") for part in answer if isinstance(part, dict))
+        answer = "\\n".join(str(part.get("text") or "") for part in answer if isinstance(part, dict))
     if not str(answer).strip():
-        raise RuntimeError("G4F Gemini provider returned an empty response.")
+        raise RuntimeError("G4F provider returned an empty response.")
     return str(answer).strip()
 
 
