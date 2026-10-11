@@ -154,7 +154,7 @@ limiter = Limiter(
 # =========================================================
 
 # Prefer Gemini Pro for deeper reasoning and image understanding. G4F_MODEL can override this.
-G4F_MODEL = os.getenv("G4F_MODEL", "gpt-4o").strip()
+G4F_MODEL = os.getenv("G4F_MODEL", "gemini-2.5-pro").strip()
 
 # Do not pin the client to Gemini: that provider raises MissingAuthError on
 # Vercel when no Google session cookies are configured. Client() lets g4f select
@@ -1037,11 +1037,11 @@ def chat():
         requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
         if requested_model_tier not in {"normal", "pro"}:
             requested_model_tier = "pro"
-        # Use common model aliases so g4f can route to providers that are
-        # actually available, rather than requiring a logged-in Gemini session.
+        # Keep Google's Gemini models as requested. The unpinned g4f client
+        # can rotate through the registered Gemini/GeminiPro/GeminiCLI providers.
         model_choices = {
-            "normal": "gpt-4o-mini",
-            "pro": "gpt-4o",
+            "normal": "gemini-2.5-flash",
+            "pro": "gemini-2.5-pro",
         }
         selected_model = model_choices[requested_model_tier]
 
