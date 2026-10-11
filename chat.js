@@ -1644,23 +1644,25 @@ document.addEventListener("click", event => {
 
 if (imageInput) {
     imageInput.addEventListener("change", async () => {
-        // This control intentionally accepts one attachment per message.
-        const file = imageInput.files && imageInput.files.length
-            ? imageInput.files.item(0)
-            : null;
-
+        // Copy the FileList before clearing the input, otherwise mobile browsers
+        // may discard the selected batch.
+        const files = Array.from(imageInput.files || []);
         setAttachmentMenu(false);
-        if (!file) return;
+        if (!files.length) return;
 
-        try {
-            await selectFile(file);
-        } catch (error) {
-            console.error("File selection failed:", error);
-            addMessage(
-                error?.message || "Could not select this file. Please try again.",
-                "ai-message"
-            );
+        removeSelectedImage();
+        for (const file of files) {
+            try {
+                await selectFile(file);
+            } catch (error) {
+                console.error("File selection failed:", error);
+                addMessage(
+                    error?.message || ("Could not select " + (file.name || "this file") + "."),
+                    "ai-message"
+                );
+            }
         }
+        updateAttachmentPreview();
     });
 }
 
