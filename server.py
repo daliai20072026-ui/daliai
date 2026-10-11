@@ -31,7 +31,8 @@ if os.getenv("VERCEL") == "1":
     os.makedirs(os.environ["XDG_CACHE_HOME"], exist_ok=True)
 
 from g4f.client import Client
-from g4f.Provider.needs_auth import Gemini
+# Let g4f rotate across providers instead of pinning the app to a Gemini
+# session provider that requires browser cookies/authentication.
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -153,11 +154,12 @@ limiter = Limiter(
 # =========================================================
 
 # Prefer Gemini Pro for deeper reasoning and image understanding. G4F_MODEL can override this.
-G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.1-pro").strip()
+G4F_MODEL = os.getenv("G4F_MODEL", "gpt-4o").strip()
 
-# Use Google Gemini directly through g4f.
-# Note: the current g4f Gemini provider needs a Google Gemini session/cookies.
-client = Client(provider=Gemini)
+# Do not pin the client to Gemini: that provider raises MissingAuthError on
+# Vercel when no Google session cookies are configured. Client() lets g4f select
+# an available provider for the requested model instead.
+client = Client()
 
 
 
@@ -1035,9 +1037,11 @@ def chat():
         requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
         if requested_model_tier not in {"normal", "pro"}:
             requested_model_tier = "pro"
+        # Use common model aliases so g4f can route to providers that are
+        # actually available, rather than requiring a logged-in Gemini session.
         model_choices = {
-            "normal": "gemini-2.5-pro",
-            "pro": "gemini-3.1-pro",
+            "normal": "gpt-4o-mini",
+            "pro": "gpt-4o",
         }
         selected_model = model_choices[requested_model_tier]
 
