@@ -1415,6 +1415,12 @@ async function sendMessage() {
         return;
     }
 
+    const attachmentBytes = selectedAttachments.reduce((total, item) => total + (item.file?.size || 0), 0);
+    if (attachmentBytes > MAX_UPLOAD_REQUEST_BYTES) {
+        addMessage("The selected files are too large to send together. Choose fewer files or smaller files (4 MB total maximum).", "ai-message");
+        return;
+    }
+
     isSending = true;
 
     const sendText = text;
