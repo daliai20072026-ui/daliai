@@ -1092,6 +1092,11 @@ def chat():
         }
         selected_model = model_choices[requested_model_tier]
 
+        if not GEMINI_API_KEY:
+            return jsonify({
+                "error": "Gemini is selected, but GEMINI_API_KEY is missing. Create a key in Google AI Studio and add it in Vercel → Project Settings → Environment Variables, then redeploy."
+            }), 503
+
         if not isinstance(text, str):
             return jsonify({"error": "Invalid message."}), 400
 
@@ -1678,11 +1683,10 @@ def _generate_instagram_caption(day=None):
         "Avoid generic repeated openings. Return only the caption, no commentary. Date: " + day.isoformat() + "."
     )
     try:
-        response = client.chat.completions.create(messages=[
+        answer = _gemini_generate([
             {"role": "system", "content": "You write social captions for Dali AI. Never claim an unverified feature or result."},
             {"role": "user", "content": prompt}
-        ], model=G4F_MODEL)
-        answer = response.choices[0].message.content if response and getattr(response, "choices", None) else ""
+        ], "gemini-3.8-flash")
         answer = clean_ai_response(answer)[:2200].strip()
         if answer:
             return answer
