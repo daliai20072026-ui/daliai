@@ -439,3 +439,49 @@ body {
         padding-right: 10px;
     }
 }
+
+
+/* Responsive polish: homepage navigation, hero, feature frame, and footer */
+html { scroll-behavior: smooth; }
+body { min-width: 320px; overflow-x: clip; }
+.nav { padding-top: env(safe-area-inset-top); }
+.nav_c { width: min(100%, 1160px); gap: 18px; }
+.links { align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.links a, .git a { min-height: 42px; display: inline-flex; align-items: center; }
+.hero { width: min(100% - 32px, 900px); padding: clamp(22px, 5vw, 50px); }
+.hero h1 { font-size: clamp(32px, 5.5vw, 55px); line-height: 1.12; overflow-wrap: anywhere; }
+.hero p { max-width: 760px; margin-left: auto; margin-right: auto; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 12px 24px; border-radius: 12px; font-weight: 700; text-decoration: none; }
+.features-section { width: min(100%, 1160px); margin: 0 auto 42px; padding: 0 clamp(12px, 3vw, 24px); }
+.features-section h2 { margin: 0 0 18px; }
+.features-section iframe { display: block; width: 100%; min-width: 0; max-width: 100%; border: 1px solid rgba(139,148,158,.18); border-radius: 16px; overflow: hidden; }
+.site-footer { overflow-wrap: anywhere; }
+a, button { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid #00e5ff; outline-offset: 3px; }
+@media (max-width: 700px) {
+  .nav_c { flex-direction: row; align-items: center; padding: 12px 16px; }
+  .links { gap: 6px 12px; }
+  .links a { font-size: 13px; }
+  .git { padding: 7px 11px; font-size: 13px; }
+  .hero { margin: clamp(28px, 7vh, 54px) auto; padding: 24px 18px; }
+  .hero h1 { margin-bottom: 20px; }
+  .hero h3 { line-height: 1.35; }
+  .features-section iframe { height: 980px; }
+}
+@media (max-width: 480px) {
+  .nav_c { flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .logo { font-size: 19px; }
+  .logo img { width: 31px; height: 31px; }
+  .links { width: 100%; justify-content: center; gap: 4px 13px; }
+  .links a { min-height: 36px; font-size: 12px; }
+  .git { padding: 5px 9px; font-size: 12px; }
+  .hero { width: calc(100% - 20px); padding: 22px 10px; }
+  .hero p { font-size: 15px; line-height: 1.7; }
+  .hero h3 { font-size: 18px; }
+  .features-section { padding: 0 10px; }
+  .features-section iframe { height: 920px; border-radius: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
