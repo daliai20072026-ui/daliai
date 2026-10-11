@@ -208,18 +208,27 @@ def _gemini_generate(messages, model=None, image_data_uris=None):
             raise RuntimeError("G4F provider returned invalid JSON.") from error
         return result
 
-    # Keep Gemini as the primary provider. If the public Gemini route is
-    # unavailable (for example HTTP 402), automatically try G4F's documented
-    # provider/model router so the chat can still respond without an API key.
+    # Gemini remains first. The auto route can return 404 on some deployments,
+    # so use documented public provider routes as fallbacks in sequence.
     try:
         result = request_completion(G4F_GEMINI_BASE_URL, G4F_GEMINI_MODEL)
     except (RuntimeError, TimeoutError) as primary_error:
-        print("G4F Gemini primary failed; trying automatic fallback: " + str(primary_error))
-        try:
-            result = request_completion("https://g4f.space/api/auto", "auto")
-        except (RuntimeError, TimeoutError) as fallback_error:
-            print("G4F automatic fallback failed: " + str(fallback_error))
-            raise RuntimeError("AI providers are temporarily unavailable. Please try again shortly.") from fallback_error
+        print("G4F Gemini primary failed; trying public fallbacks: " + str(primary_error))
+        result = None
+        fallback_errors = []
+        for base_url, fallback_model in (
+            ("https://g4f.space/api/groq", "llama-3.3-70b-versatile"),
+            ("https://g4f.space/api/pollinations", "openai"),
+            ("https://g4f.space/api/nvidia", "meta/llama-3.3-70b-instruct"),
+        ):
+            try:
+                result = request_completion(base_url, fallback_model)
+                break
+            except (RuntimeError, TimeoutError) as fallback_error:
+                fallback_errors.append(str(fallback_error))
+                print("G4F fallback failed (" + base_url + "): " + str(fallback_error))
+        if result is None:
+            raise RuntimeError("AI providers are temporarily unavailable. Please try again shortly.") from primary_error
 
     choices = result.get("choices") or []
     if not choices:
