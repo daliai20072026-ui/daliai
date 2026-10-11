@@ -44,6 +44,7 @@ import secrets
 import hashlib
 import hmac
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 
 # Load local .env for development. Vercel/production environment variables
 # still take precedence because load_dotenv() does not override existing values.
@@ -160,7 +161,22 @@ G4F_MODEL = os.getenv("G4F_MODEL", "gemini-2.5-pro").strip()
 # Vercel when no Google session cookies are configured. Client() lets g4f select
 # an available provider for the requested model instead.
 client = Client()
+# Bound each upstream model attempt so a stalled public provider cannot keep
+# the browser waiting until Vercel's function timeout. Keep one spare worker
+# available for the Normal-model fallback if Pro stalls.
+_AI_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dali-ai")
+AI_ATTEMPT_TIMEOUT_SECONDS = 22
 
+
+def _run_ai_completion(kwargs, timeout=AI_ATTEMPT_TIMEOUT_SECONDS):
+    future = _AI_EXECUTOR.submit(client.chat.completions.create, **kwargs)
+    try:
+        return future.result(timeout=timeout)
+    except FutureTimeoutError as error:
+        # A provider call cannot always be cancelled, but the HTTP request can
+        # fail over promptly instead of waiting for the provider indefinitely.
+        future.cancel()
+        raise TimeoutError("Gemini provider timed out.") from error
 
 
 # =========================================================
@@ -1211,7 +1227,7 @@ def chat():
             kwargs["images"] = [[uri, name] for uri, name in zip(image_data_uris, image_filenames)]
 
         try:
-            response = client.chat.completions.create(**kwargs)
+            response = _run_ai_completion(kwargs)
             active_model_tier = requested_model_tier
         except Exception as provider_error:
             # If Pro is unavailable for this request, retry once with the supported
@@ -1220,7 +1236,7 @@ def chat():
                 fallback_kwargs = dict(kwargs)
                 fallback_kwargs["model"] = model_choices["normal"]
                 try:
-                    response = client.chat.completions.create(**fallback_kwargs)
+                    response = _run_ai_completion(fallback_kwargs)
                     active_model_tier = "normal"
                     app.logger.warning("Gemini Pro request failed; Normal model fallback succeeded.")
                 except Exception as fallback_error:
@@ -1281,7 +1297,11 @@ def chat():
         err_msg = str(error).strip()
         lowered = err_msg.lower()
 
-        if "image" in lowered or "vision" in lowered:
+        if "timed out" in lowered or "timeout" in lowered:
+            return jsonify({
+                "error": "Gemini is taking too long right now. Please try again, or select Normal if Pro is slow."
+            }), 504
+        elif "image" in lowered or "vision" in lowered:
             message = (
                 "Dali AI could not analyze this image. "
                 "The selected provider may not support vision."
