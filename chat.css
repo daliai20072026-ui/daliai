@@ -6326,3 +6326,80 @@ button, textarea, input {
         transition: none;
     }
 }
+
+
+/* Responsive layout and attachment-picker polish (Android, iOS, desktop) */
+html { min-width: 320px; }
+body { min-width: 0; overflow: hidden; }
+.chat-container, .main-content, .messages, .message-content, .input-area, .input-box { min-width: 0; }
+.chat-container { width: 100%; max-width: 100vw; }
+.chat-header, .input-area { padding-left: clamp(10px, 2.4vw, 24px); padding-right: clamp(10px, 2.4vw, 24px); }
+.messages { min-width: 0; overflow-x: hidden; overflow-wrap: anywhere; }
+.message-content { overflow-wrap: anywhere; word-break: normal; }
+.message-content pre, .message-content table { max-width: 100%; }
+.message-content pre { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.message-content img, .message-content video, .message-content canvas, .message-content svg { max-width: 100%; height: auto; }
+.message-content table { display: block; overflow-x: auto; width: max-content; max-width: 100%; border-collapse: collapse; -webkit-overflow-scrolling: touch; }
+.message-content mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.quick-prompts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.prompt-card { min-width: 0; overflow-wrap: anywhere; }
+.input-area { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.input-box { width: 100%; gap: 8px; }
+#messageInput { min-width: 0; width: 100%; font-size: 16px; line-height: 1.5; }
+.attach-btn, .send-btn, .voice-btn, .mobile-menu-btn, .clear-chat { touch-action: manipulation; }
+.attach-btn, .send-btn, .voice-btn, .mobile-menu-btn { min-width: 42px; min-height: 42px; }
+.attachment-menu-wrap { position: relative; flex: 0 0 auto; }
+.attachment-menu { z-index: 250; width: min(290px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: min(60dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.attachment-option { width: 100%; min-height: 48px; gap: 10px; text-align: left; }
+.attachment-option > span:last-child { min-width: 0; }
+.attachment-option strong, .attachment-option small { overflow-wrap: anywhere; }
+.attachment-preview { width: min(100%, 920px); max-width: 100%; min-width: 0; gap: 10px; }
+#filePreviewName { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.image-preview-status { overflow-wrap: anywhere; }
+.user-message, .ai-message { min-width: 0; overflow-wrap: anywhere; }
+button, input, textarea, select { font: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid rgba(0,229,255,.9); outline-offset: 2px; }
+@media (min-width: 600px) and (max-width: 1024px) {
+  .sidebar { width: 238px; }
+  .messages { padding: 24px clamp(16px, 3vw, 28px); }
+  .welcome-screen { padding-top: 20px; }
+  .quick-prompts { gap: 10px; }
+  .input-area { padding-top: 10px; }
+}
+@media (max-width: 767px) {
+  .messages { padding: 16px 12px 18px; }
+  .quick-prompts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 20px; }
+  .prompt-card { min-height: 72px; padding: 10px; gap: 8px; border-radius: 12px; }
+  .prompt-card > span:first-child { width: 32px; height: 32px; flex-basis: 32px; font-size: 16px; }
+  .prompt-card strong { font-size: 12px; line-height: 1.35; }
+  .prompt-card small { font-size: 10px; line-height: 1.4; }
+  .welcome-screen { padding: 18px 2px 12px; }
+  .welcome-screen h1 { font-size: clamp(26px, 6vw, 36px); overflow-wrap: anywhere; }
+  .welcome-subtitle { font-size: 13px; }
+  .input-area { padding: 8px 10px max(10px, env(safe-area-inset-bottom)); }
+  .input-box { gap: 5px; padding: 7px; border-radius: 16px; }
+  .attachment-menu { left: 0; right: auto; bottom: calc(100% + 8px); }
+  .ai-message, .user-message { max-width: 100%; }
+  .attachment-preview { padding: 8px 10px; }
+}
+@media (max-width: 420px) {
+  .chat-header { padding-left: 10px; padding-right: 10px; }
+  .header-actions { gap: 4px; }
+  .clear-chat { padding: 6px 7px; font-size: 10px; }
+  .messages { padding-left: 9px; padding-right: 9px; }
+  .quick-prompts { grid-template-columns: minmax(0, 1fr); }
+  .prompt-card { min-height: 62px; }
+  .prompt-card small { font-size: 11px; }
+  .input-area { padding-left: 7px; padding-right: 7px; }
+  .attach-btn, .send-btn, .voice-btn { min-width: 38px; min-height: 40px; }
+  .attachment-menu { width: min(270px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
+}
+@media (max-height: 540px) and (max-width: 767px) {
+  .welcome-logo { width: 44px; height: 44px; margin-bottom: 10px; }
+  .welcome-subtitle { margin-top: 8px; }
+  .quick-prompts { margin-top: 12px; }
+}
+@media (hover: none) {
+  .prompt-card:hover { transform: none; }
+}
