@@ -152,8 +152,8 @@ limiter = Limiter(
 # G4F CLIENT
 # =========================================================
 
-# Empty model lets the current g4f client choose its default provider/model.
-G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.5-flash").strip()
+# Prefer Gemini Pro for deeper reasoning and image understanding. G4F_MODEL can override this.
+G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.1-pro-preview").strip()
 
 # Use Google Gemini directly through g4f.
 # Note: the current g4f Gemini provider needs a Google Gemini session/cookies.
@@ -666,6 +666,18 @@ Keep the distinction clear: Dali AI = the assistant/project; Google Gemini = und
 """
 
 
+REASONING_RULES = """
+QUALITY AND REASONING:
+- Think carefully through multi-step problems before writing the final answer; do not expose private chain-of-thought.
+- Verify calculations, code changes, and conclusions before responding.
+- For multiple attached images, inspect every image separately, then combine the evidence and compare differences or relationships.
+- Do not silently ignore an attachment. If an image is unreadable or missing details, clearly identify the limitation.
+- Separate visible evidence from assumptions; do not fabricate text or details.
+- Give a useful, well-structured answer with examples or steps when they materially help.
+- Match the user's language naturally, including Tunisian Arabic, Arabic, French, English, or mixed-language messages.
+"""
+
+
 def is_followup_request(text):
     """
     Detect short messages that are normally follow-ups to the previous answer,
@@ -752,9 +764,9 @@ standalone question.
 
     if has_image:
         vision_rule = """
-The user attached an image.
-Analyze the image carefully.
-Use the image as part of the user's question.
+The user attached one or more images.
+Inspect every attached image carefully and use all of them as part of the user's question.
+If there are multiple images, compare them and combine their evidence rather than focusing on only the first image.
 Describe or interpret only what is visible and readable.
 Do not invent details that are not visible.
 If text is blurry or partially hidden, say that it is unclear.
@@ -777,6 +789,7 @@ If the extracted content is incomplete or unreadable, say so clearly.
     if mode == "coding":
         return f"""
 {DALI_IDENTITY}
+{REASONING_RULES}
 You are Dali AI in CODING ASSISTANT MODE.
 You are designed for students and developers.
 
@@ -803,6 +816,7 @@ Rules:
     if mode == "study":
         return f"""
 {DALI_IDENTITY}
+{REASONING_RULES}
 You are Dali AI in STUDY ASSISTANT MODE.
 You are designed for students.
 
@@ -826,6 +840,7 @@ Rules:
 
     return f"""
 {DALI_IDENTITY}
+{REASONING_RULES}
 You are Dali AI, a helpful AI assistant designed for students and developers.
 
 Rules:
@@ -1093,7 +1108,7 @@ def chat():
             return jsonify({"error": "Message cannot be empty."}), 400
 
         if image_bytes:
-            ai_text = text if text else "Please analyze the attached image and explain what you see."
+            ai_text = text if text else "Please analyze all attached images together and explain what you see in each one."
         elif extracted_file_text:
             ai_text = text if text else "Please read the attached file and explain its contents."
         else:
@@ -1125,6 +1140,15 @@ def chat():
         )
 
         current_user_content = ai_text
+
+        if image_filenames:
+            current_user_content += (
+                "\n\n[Attached image filenames: "
+                + ", ".join(image_filenames)
+                + "]\nAnalyze every attached image. "
+                + ("Compare the images and explain their similarities and differences. " if len(image_filenames) > 1 else "")
+                + "Use all attached images as evidence for the user request."
+            )
 
         if extracted_file_text:
             current_user_content += (
