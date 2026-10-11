@@ -154,12 +154,11 @@ limiter = Limiter(
 # G4F CLIENT
 # =========================================================
 
-# Prefer Gemini Pro for deeper reasoning and image understanding. G4F_MODEL can override this.
-G4F_MODEL = os.getenv("G4F_MODEL", "gemini-2.5-pro").strip()
+# Use GLM models (Z.ai) instead of Gemini, ChatGPT, or DeepSeek.
+# Keep provider selection flexible because g4f availability can vary by deployment.
+G4F_MODEL = os.getenv("G4F_MODEL", "glm-5.3-flash").strip()
 
-# Do not pin the client to Gemini: that provider raises MissingAuthError on
-# Vercel when no Google session cookies are configured. Client() lets g4f select
-# an available provider for the requested model instead.
+# Let g4f select an available provider for GLM models.
 client = Client()
 # Bound each upstream model attempt so a stalled public provider cannot keep
 # the browser waiting until Vercel's function timeout. Keep one spare worker
@@ -176,7 +175,7 @@ def _run_ai_completion(kwargs, timeout=AI_ATTEMPT_TIMEOUT_SECONDS):
         # A provider call cannot always be cancelled, but the HTTP request can
         # fail over promptly instead of waiting for the provider indefinitely.
         future.cancel()
-        raise TimeoutError("Gemini provider timed out.") from error
+        raise TimeoutError("GLM provider timed out.") from error
 
 
 # =========================================================
@@ -671,16 +670,14 @@ def fix_math(text):
 
 DALI_IDENTITY = """
 IDENTITY — IMPORTANT:
-You are Dali AI, the assistant created and developed as part of the Dali AI project.
-You are NOT Google, Gemini, or any other company.
-Your underlying AI/model technology may be powered by Google Gemini, but Gemini is the
-technology provider/model layer, not the creator of Dali AI.
+You are Dali AI, created and developed by the Dali AI team.
+You are not Gemini, ChatGPT, DeepSeek, GLM, or another company's assistant.
+GLM is only the underlying model technology used by this version of Dali AI.
 If the user asks who created or made you, answer naturally:
-"I’m Dali AI, created and developed for the Dali AI project, powered by Google Gemini."
-Do not say "I was created by Google" or "Google created me."
-If the user asks who powers you, you may say:
-"I’m powered by Google Gemini."
-Keep the distinction clear: Dali AI = the assistant/project; Google Gemini = underlying AI technology.
+"I'm Dali AI, made by the Dali AI team."
+Never claim that Google, OpenAI, DeepSeek, or Z.ai created Dali AI.
+If the user asks which model powers you, you may say that Dali AI currently uses a GLM model.
+Keep the distinction clear: Dali AI is the assistant and product; GLM is the underlying model technology.
 """
 
 
@@ -1053,11 +1050,11 @@ def chat():
         requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
         if requested_model_tier not in {"normal", "pro"}:
             requested_model_tier = "pro"
-        # Keep Google's Gemini models as requested. The unpinned g4f client
-        # can rotate through the registered Gemini/GeminiPro/GeminiCLI providers.
+        # Simple user-facing tiers backed by GLM: fast Flash for Normal,
+        # stronger GLM reasoning model for Pro.
         model_choices = {
-            "normal": "gemini-2.5-flash",
-            "pro": "gemini-2.5-pro",
+            "normal": "glm-5.3-flash",
+            "pro": "glm-5.3",
         }
         selected_model = model_choices[requested_model_tier]
 
@@ -1212,7 +1209,7 @@ def chat():
             "content": current_user_content
         })
 
-        # Generate through g4f's Gemini provider.
+        # Generate through an available g4f provider for GLM.
         kwargs = {
             "messages": messages
         }
@@ -1238,7 +1235,7 @@ def chat():
                 try:
                     response = _run_ai_completion(fallback_kwargs)
                     active_model_tier = "normal"
-                    app.logger.warning("Gemini Pro request failed; Normal model fallback succeeded.")
+                    app.logger.warning("GLM Pro request failed; Normal model fallback succeeded.")
                 except Exception as fallback_error:
                     app.logger.error(
                         "AI provider request failed for Pro and Normal models (%s, %s).",
@@ -1260,21 +1257,16 @@ def chat():
 
         answer = clean_ai_response(answer)
 
-        # Final identity guard: the model must never claim that Google created Dali AI.
-        # Gemini may power Dali AI, but Dali AI is the product/project identity.
+        # Final identity guard: Dali AI is the product, regardless of its model provider.
         identity_patterns = (
-            "i was created by google",
-            "i was made by google",
-            "google created me",
-            "google made me",
-            "created by google",
-            "made by google",
+            "i was created by google", "i was made by google", "google created me",
+            "google made me", "created by google", "made by google",
+            "i was created by openai", "openai created me", "created by openai",
+            "i was created by deepseek", "deepseek created me", "created by deepseek",
+            "i was created by z.ai", "z.ai created me", "created by z.ai",
         )
         if any(pattern in answer.lower() for pattern in identity_patterns):
-            answer = (
-                "I’m Dali AI, created and developed for the Dali AI project, "
-                "powered by Google Gemini."
-            )
+            answer = "I'm Dali AI, made and developed by the Dali AI team."
 
         answer = fix_math(answer)
 
@@ -1299,7 +1291,7 @@ def chat():
 
         if "timed out" in lowered or "timeout" in lowered:
             return jsonify({
-                "error": "Gemini is taking too long right now. Please try again, or select Normal if Pro is slow."
+                "error": "Dali AI is taking longer than usual. Please try again, or choose Normal for a faster reply."
             }), 504
         elif "image" in lowered or "vision" in lowered:
             message = (
