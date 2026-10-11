@@ -107,6 +107,7 @@ let selectedImage = null;
 let selectedImageUrl = null;
 let selectedImageObjectUrl = null;
 let selectedFile = null;
+let selectedAttachments = [];
 let isSending = false;
 
 // Conversation context exists only in the current page session.
@@ -1109,6 +1110,7 @@ function clearChat() {
 }
 
 function removeSelectedImage() {
+    selectedAttachments = [];
     selectedImage = null;
     selectedImageUrl = null;
     selectedFile = null;
@@ -1215,8 +1217,6 @@ async function selectFile(file) {
         return;
     }
 
-    removeSelectedImage();
-
     const extension = String(file.name || "")
         .split(".")
         .pop()
@@ -1305,23 +1305,20 @@ async function selectFile(file) {
             previewStatus.textContent = "";
         }
 
-        const reader = new FileReader();
-
-        reader.onload = () => {
-            selectedImageUrl = reader.result;
-        };
-
-        reader.onerror = () => {
-            const previewStatus =
-                imagePreview?.querySelector(".image-preview-status");
-
-            if (previewStatus) {
-                previewStatus.textContent =
-                    "Could not prepare the image, but you can still try sending it.";
-            }
-        };
-
-        reader.readAsDataURL(file);
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("Could not read image " + file.name + "."));
+            reader.readAsDataURL(selectedImage);
+        });
+        selectedImageUrl = dataUrl;
+        selectedAttachments.push({
+            kind: "image",
+            file: selectedImage,
+            dataUrl,
+            previewFile: file
+        });
+        updateAttachmentPreview();
         return;
     }
 
@@ -1334,6 +1331,7 @@ async function selectFile(file) {
     }
 
     selectedFile = file;
+    selectedAttachments.push({ kind: "file", file });
 
     if (previewImage) {
         previewImage.onload = null;
@@ -1353,6 +1351,7 @@ async function selectFile(file) {
     if (filePreviewIcon) {
         filePreviewIcon.textContent = getFileIcon(file.name);
     }
+    updateAttachmentPreview();
 
     if (imagePreview) {
         imagePreview.style.display = "flex";
@@ -1368,6 +1367,17 @@ async function selectFile(file) {
 
         previewStatus.textContent = "";
     }
+}
+
+function updateAttachmentPreview() {
+    if (!selectedAttachments.length) return;
+    const names = selectedAttachments.map(item => item.file?.name || "Attachment");
+    if (filePreviewName) filePreviewName.textContent = names.join(", ");
+    if (filePreviewIcon) filePreviewIcon.textContent = selectedAttachments.length > 1
+        ? "📎 " + selectedAttachments.length
+        : getFileIcon(names[0]);
+    if (filePreviewInfo) filePreviewInfo.style.display = "flex";
+    if (imagePreview) imagePreview.style.display = "flex";
 }
 
 function getFileIcon(filename) {
@@ -1401,7 +1411,7 @@ async function sendMessage() {
 
     const text = (input?.value || "").trim();
 
-    if (!text && !selectedImage && !selectedFile) {
+    if (!text && !selectedAttachments.length && !selectedImage && !selectedFile) {
         return;
     }
 
@@ -1410,10 +1420,11 @@ async function sendMessage() {
     const sendText = text;
     if (filePreparationPromise) await filePreparationPromise;
 
-    const imageFile = selectedImage;
-    const fileFile = selectedFile;
-    const imageUrl = selectedImageUrl;
-    const attachmentName = imageFile?.name || fileFile?.name || null;
+    const attachments = selectedAttachments.slice();
+    const imageFile = attachments.find(item => item.kind === "image")?.file || selectedImage;
+    const fileFile = attachments.find(item => item.kind === "file")?.file || selectedFile;
+    const imageUrl = attachments.find(item => item.kind === "image")?.dataUrl || selectedImageUrl;
+    const attachmentName = attachments.map(item => item.file?.name).filter(Boolean).join(", ") || imageFile?.name || fileFile?.name || null;
     const contextBeforeTurn = getConversationHistoryForRequest();
 
     addMessage(
@@ -1455,15 +1466,19 @@ async function sendMessage() {
     try {
         let options;
 
-        if (imageFile || fileFile) {
+        if (attachments.length || imageFile || fileFile) {
             const formData = new FormData();
             formData.append("message", sendText);
             formData.append("history", JSON.stringify(contextBeforeTurn));
 
-            if (imageFile) {
-                formData.append("image", imageFile);
+            if (attachments.length) {
+                attachments.forEach(item => {
+                    formData.append(item.kind === "image" ? "images" : "files", item.file);
+                });
+            } else if (imageFile) {
+                formData.append("images", imageFile);
             } else {
-                formData.append("file", fileFile);
+                formData.append("files", fileFile);
             }
 
             options = {
