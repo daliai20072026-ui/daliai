@@ -1083,14 +1083,10 @@ def chat():
 
         text = data.get("message", "")
 
-        requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
-        if requested_model_tier not in {"normal", "pro"}:
-            requested_model_tier = "pro"
-        model_choices = {
-            "normal": "gemini-3.8-flash",
-            "pro": "gemini-3.1-pro",
-        }
-        selected_model = model_choices[requested_model_tier]
+        # Dali AI uses one model tier only: Gemini Flash. Ignore any stale
+        # frontend "pro" selection so older clients keep working normally.
+        requested_model_tier = "normal"
+        selected_model = "gemini-3.8-flash"
 
         if not GEMINI_API_KEY:
             return jsonify({
@@ -1250,23 +1246,10 @@ def chat():
 
         try:
             answer = _gemini_generate(messages, selected_model, image_data_uris)
-            active_model_tier = requested_model_tier
+            active_model_tier = "normal"
         except Exception as provider_error:
-            if requested_model_tier == "pro":
-                try:
-                    answer = _gemini_generate(messages, model_choices["normal"], image_data_uris)
-                    active_model_tier = "normal"
-                    app.logger.warning("Gemini Pro request failed; Normal model fallback succeeded.")
-                except Exception as fallback_error:
-                    app.logger.error(
-                        "Gemini API request failed for Pro and Normal models (%s, %s).",
-                        type(provider_error).__name__,
-                        type(fallback_error).__name__
-                    )
-                    raise RuntimeError("Gemini API unavailable for both selected and fallback models.") from fallback_error
-            else:
-                app.logger.error("Gemini API request failed for Normal model (%s).", type(provider_error).__name__)
-                raise RuntimeError("Gemini API unavailable for the selected model.") from provider_error
+            app.logger.error("Gemini Flash request failed (%s).", type(provider_error).__name__)
+            raise RuntimeError("Gemini Flash is temporarily unavailable. Please try again shortly.") from provider_error
 
         answer = clean_ai_response(answer)
 
