@@ -155,7 +155,7 @@ limiter = Limiter(
 # G4F hosted Gemini can be slower during cold starts; stay within the
 # serverless request budget while allowing a little more time.
 GEMINI_TIMEOUT_SECONDS = 50
-G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini"
+G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini-v1beta"
 G4F_GEMINI_MODEL = "gemini-2.5-flash"
 
 def _gemini_generate(messages, model=None, image_data_uris=None):
@@ -213,7 +213,7 @@ def _gemini_generate(messages, model=None, image_data_uris=None):
         raise RuntimeError("G4F Gemini provider returned no choices.")
     answer = (choices[0].get("message") or {}).get("content") or ""
     if isinstance(answer, list):
-        answer = "\\n".join(str(part.get("text") or "") for part in answer if isinstance(part, dict))
+        answer = "\n".join(str(part.get("text") or "") for part in answer if isinstance(part, dict))
     if not str(answer).strip():
         raise RuntimeError("G4F Gemini provider returned an empty response.")
     return str(answer).strip()
