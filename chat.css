@@ -6403,3 +6403,29 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (hover: none) {
   .prompt-card:hover { transform: none; }
 }
+
+
+/* Slightly roomier AI responses without changing the established design */
+.ai-message {
+    padding: 21px 24px;
+}
+.ai-message .message-content {
+    line-height: 1.82;
+}
+.ai-message .message-content p {
+    margin-top: 0.82em;
+    margin-bottom: 0.82em;
+}
+@media (max-width: 700px) {
+    .ai-message {
+        padding: 19px 18px 20px;
+    }
+    .ai-message .message-content {
+        line-height: 1.8;
+    }
+}
+@media (max-width: 430px) {
+    .ai-message {
+        padding: 17px 15px 18px;
+    }
+}
