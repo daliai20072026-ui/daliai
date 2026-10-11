@@ -153,7 +153,7 @@ limiter = Limiter(
 # =========================================================
 
 # Prefer Gemini Pro for deeper reasoning and image understanding. G4F_MODEL can override this.
-G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.1-pro-preview").strip()
+G4F_MODEL = os.getenv("G4F_MODEL", "gemini-3.1-pro").strip()
 
 # Use Google Gemini directly through g4f.
 # Note: the current g4f Gemini provider needs a Google Gemini session/cookies.
@@ -1031,6 +1031,16 @@ def chat():
 
         text = data.get("message", "")
 
+        # Model names must match the identifiers supported by the installed g4f provider.
+        requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
+        if requested_model_tier not in {"normal", "pro"}:
+            requested_model_tier = "pro"
+        model_choices = {
+            "normal": "gemini-2.5-pro",
+            "pro": "gemini-3.1-pro",
+        }
+        selected_model = model_choices[requested_model_tier]
+
         if not isinstance(text, str):
             return jsonify({"error": "Invalid message."}), 400
 
@@ -1187,8 +1197,7 @@ def chat():
             "messages": messages
         }
 
-        if G4F_MODEL:
-            kwargs["model"] = G4F_MODEL
+        kwargs["model"] = selected_model
 
         if image_data_uri:
             # g4f expects each image as [image_data, filename].
@@ -1199,11 +1208,27 @@ def chat():
 
         try:
             response = client.chat.completions.create(**kwargs)
+            active_model_tier = requested_model_tier
         except Exception as provider_error:
-            app.logger.error("AI provider request failed (prompt/history intentionally not logged).")
-            raise RuntimeError(
-                "g4f provider error: " + str(provider_error)
-            ) from provider_error
+            # If Pro is unavailable for this request, retry once with the supported
+            # Normal tier instead of immediately showing the generic failure.
+            if requested_model_tier == "pro":
+                fallback_kwargs = dict(kwargs)
+                fallback_kwargs["model"] = model_choices["normal"]
+                try:
+                    response = client.chat.completions.create(**fallback_kwargs)
+                    active_model_tier = "normal"
+                    app.logger.warning("Gemini Pro request failed; Normal model fallback succeeded.")
+                except Exception as fallback_error:
+                    app.logger.error(
+                        "AI provider request failed for Pro and Normal models (%s, %s).",
+                        type(provider_error).__name__,
+                        type(fallback_error).__name__
+                    )
+                    raise RuntimeError("AI provider unavailable for both selected and fallback models.") from fallback_error
+            else:
+                app.logger.error("AI provider request failed for Normal model (%s).", type(provider_error).__name__)
+                raise RuntimeError("AI provider unavailable for the selected model.") from provider_error
 
         if not response or not getattr(response, "choices", None):
             raise RuntimeError("g4f returned no choices.")
@@ -1242,6 +1267,7 @@ def chat():
         return jsonify({
             "reply": answer,
             "mode": effective_mode,
+            "model": active_model_tier,
             "has_image": bool(image_bytes),
             "saved": False
         })
