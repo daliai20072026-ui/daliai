@@ -30,9 +30,6 @@ if os.getenv("VERCEL") == "1":
     os.makedirs(os.environ["XDG_CONFIG_HOME"], exist_ok=True)
     os.makedirs(os.environ["XDG_CACHE_HOME"], exist_ok=True)
 
-from g4f.client import Client
-# Let g4f rotate across providers instead of pinning the app to a Gemini
-# session provider that requires browser cookies/authentication.
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,7 +58,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-g4f-gemini-2.2-voice-fix"
+BACKEND_VERSION = "dali-gemini-api-3.0"
 
 app = Flask(__name__)
 
@@ -151,31 +148,71 @@ limiter = Limiter(
 
 
 # =========================================================
-# G4F CLIENT
+# OFFICIAL GEMINI API
 # =========================================================
+# Configure GEMINI_API_KEY in Vercel Project Settings -> Environment Variables.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_TIMEOUT_SECONDS = 24
 
-# Use GLM models (Z.ai) instead of Gemini, ChatGPT, or DeepSeek.
-# Keep provider selection flexible because g4f availability can vary by deployment.
-G4F_MODEL = os.getenv("G4F_MODEL", "glm-5.3-flash").strip()
+def _gemini_generate(messages, model, image_data_uris=None):
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not configured in Vercel.")
 
-# Let g4f select an available provider for GLM models.
-client = Client()
-# Bound each upstream model attempt so a stalled public provider cannot keep
-# the browser waiting until Vercel's function timeout. Keep one spare worker
-# available for the Normal-model fallback if Pro stalls.
-_AI_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dali-ai")
-AI_ATTEMPT_TIMEOUT_SECONDS = 22
+    contents = []
+    last_index = len(messages) - 1
+    for index, message in enumerate(messages):
+        role = message.get("role", "user")
+        if role == "system":
+            continue
+        gemini_role = "model" if role in {"assistant", "model"} else "user"
+        parts = [{"text": str(message.get("content") or "")}]
+        if index == last_index and role == "user":
+            for data_uri in (image_data_uris or []):
+                try:
+                    header, encoded = data_uri.split(",", 1)
+                    mime_type = header.split(":", 1)[1].split(";", 1)[0]
+                    parts.append({"inline_data": {"mime_type": mime_type, "data": encoded}})
+                except (ValueError, IndexError):
+                    continue
+        contents.append({"role": gemini_role, "parts": parts})
 
-
-def _run_ai_completion(kwargs, timeout=AI_ATTEMPT_TIMEOUT_SECONDS):
-    future = _AI_EXECUTOR.submit(client.chat.completions.create, **kwargs)
+    system_text = next(
+        (str(item.get("content") or "") for item in messages if item.get("role") == "system"),
+        ""
+    )
+    payload = {
+        "contents": contents,
+        "systemInstruction": {"parts": [{"text": system_text}]},
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
+    }
+    endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + urllib.parse.quote(model, safe="") + ":generateContent"
+    req = urllib_request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": GEMINI_API_KEY,
+            "User-Agent": "DaliAI/1.0"
+        },
+        method="POST"
+    )
     try:
-        return future.result(timeout=timeout)
-    except FutureTimeoutError as error:
-        # A provider call cannot always be cancelled, but the HTTP request can
-        # fail over promptly instead of waiting for the provider indefinitely.
-        future.cancel()
-        raise TimeoutError("GLM provider timed out.") from error
+        with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib_error.HTTPError as error:
+        detail = error.read(1200).decode("utf-8", errors="replace")
+        raise RuntimeError("Gemini API returned HTTP " + str(error.code) + ": " + detail) from error
+    except TimeoutError as error:
+        raise TimeoutError("Gemini API timed out.") from error
+
+    candidates = result.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini returned no response candidates.")
+    parts = (candidates[0].get("content") or {}).get("parts") or []
+    answer = "\n".join(str(part.get("text") or "") for part in parts if part.get("text"))
+    if not answer.strip():
+        raise RuntimeError("Gemini returned an empty response.")
+    return answer.strip()
 
 
 # =========================================================
@@ -671,13 +708,13 @@ def fix_math(text):
 DALI_IDENTITY = """
 IDENTITY — IMPORTANT:
 You are Dali AI, created and developed by the Dali AI team.
-You are not Gemini, ChatGPT, DeepSeek, GLM, or another company's assistant.
-GLM is only the underlying model technology used by this version of Dali AI.
+You are Dali AI, not Google's Gemini product or another company's assistant.
+Gemini is only the underlying model technology used by this version of Dali AI.
 If the user asks who created or made you, answer naturally:
 "I'm Dali AI, made by the Dali AI team."
-Never claim that Google, OpenAI, DeepSeek, or Z.ai created Dali AI.
-If the user asks which model powers you, you may say that Dali AI currently uses a GLM model.
-Keep the distinction clear: Dali AI is the assistant and product; GLM is the underlying model technology.
+Never claim that Google, OpenAI, or another company created Dali AI.
+If the user asks which model powers you, you may say that Dali AI currently uses a Gemini model through Google's API.
+Keep the distinction clear: Dali AI is the assistant and product; Gemini is the underlying model technology.
 """
 
 
@@ -1046,15 +1083,12 @@ def chat():
 
         text = data.get("message", "")
 
-        # Model names must match the identifiers supported by the installed g4f provider.
         requested_model_tier = str(data.get("model", "pro") or "pro").strip().lower()
         if requested_model_tier not in {"normal", "pro"}:
             requested_model_tier = "pro"
-        # Simple user-facing tiers backed by GLM: fast Flash for Normal,
-        # stronger GLM reasoning model for Pro.
         model_choices = {
-            "normal": "glm-5.3-flash",
-            "pro": "glm-5.3",
+            "normal": "gemini-3.8-flash",
+            "pro": "gemini-3.1-pro",
         }
         selected_model = model_choices[requested_model_tier]
 
@@ -1209,51 +1243,25 @@ def chat():
             "content": current_user_content
         })
 
-        # Generate through an available g4f provider for GLM.
-        kwargs = {
-            "messages": messages
-        }
-
-        kwargs["model"] = selected_model
-
-        if image_data_uri:
-            # g4f expects each image as [image_data, filename].
-            # Passing only [image_data] causes:
-            # "not enough values to unpack (expected 2, got 1)".
-            image_filename = image_file.filename or "uploaded-image"
-            kwargs["images"] = [[uri, name] for uri, name in zip(image_data_uris, image_filenames)]
-
         try:
-            response = _run_ai_completion(kwargs)
+            answer = _gemini_generate(messages, selected_model, image_data_uris)
             active_model_tier = requested_model_tier
         except Exception as provider_error:
-            # If Pro is unavailable for this request, retry once with the supported
-            # Normal tier instead of immediately showing the generic failure.
             if requested_model_tier == "pro":
-                fallback_kwargs = dict(kwargs)
-                fallback_kwargs["model"] = model_choices["normal"]
                 try:
-                    response = _run_ai_completion(fallback_kwargs)
+                    answer = _gemini_generate(messages, model_choices["normal"], image_data_uris)
                     active_model_tier = "normal"
-                    app.logger.warning("GLM Pro request failed; Normal model fallback succeeded.")
+                    app.logger.warning("Gemini Pro request failed; Normal model fallback succeeded.")
                 except Exception as fallback_error:
                     app.logger.error(
-                        "AI provider request failed for Pro and Normal models (%s, %s).",
+                        "Gemini API request failed for Pro and Normal models (%s, %s).",
                         type(provider_error).__name__,
                         type(fallback_error).__name__
                     )
-                    raise RuntimeError("AI provider unavailable for both selected and fallback models.") from fallback_error
+                    raise RuntimeError("Gemini API unavailable for both selected and fallback models.") from fallback_error
             else:
-                app.logger.error("AI provider request failed for Normal model (%s).", type(provider_error).__name__)
-                raise RuntimeError("AI provider unavailable for the selected model.") from provider_error
-
-        if not response or not getattr(response, "choices", None):
-            raise RuntimeError("g4f returned no choices.")
-
-        answer = response.choices[0].message.content
-
-        if not answer:
-            raise RuntimeError("Empty AI response.")
+                app.logger.error("Gemini API request failed for Normal model (%s).", type(provider_error).__name__)
+                raise RuntimeError("Gemini API unavailable for the selected model.") from provider_error
 
         answer = clean_ai_response(answer)
 
@@ -1289,7 +1297,11 @@ def chat():
         err_msg = str(error).strip()
         lowered = err_msg.lower()
 
-        if "timed out" in lowered or "timeout" in lowered:
+        if "gemini_api_key is not configured" in lowered:
+            return jsonify({
+                "error": "Gemini is selected, but GEMINI_API_KEY is missing. Add your Google AI Studio API key in Vercel Project Settings → Environment Variables, then redeploy."
+            }), 503
+        elif "timed out" in lowered or "timeout" in lowered:
             return jsonify({
                 "error": "Dali AI is taking longer than usual. Please try again, or choose Normal for a faster reply."
             }), 504
