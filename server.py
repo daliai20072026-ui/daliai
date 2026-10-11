@@ -58,7 +58,7 @@ from pptx import Presentation
 # APP
 # =========================================================
 
-BACKEND_VERSION = "dali-gemini-api-3.0"
+BACKEND_VERSION = "dali-g4f-gemini-flash-1.0"
 
 app = Flask(__name__)
 
@@ -148,50 +148,42 @@ limiter = Limiter(
 
 
 # =========================================================
-# OFFICIAL GEMINI API
+# G4F HOSTED GEMINI — NO GOOGLE API KEY
 # =========================================================
-# Configure GEMINI_API_KEY in Vercel Project Settings -> Environment Variables.
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+# Uses G4F's hosted Gemini-compatible endpoint. The hosted provider may
+# change availability/rate limits; it does not require GEMINI_API_KEY.
 GEMINI_TIMEOUT_SECONDS = 24
+G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini"
+G4F_GEMINI_MODEL = "gemini-2.5-flash"
 
-def _gemini_generate(messages, model, image_data_uris=None):
-    if not GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY is not configured in Vercel.")
-
-    contents = []
-    last_index = len(messages) - 1
-    for index, message in enumerate(messages):
+def _gemini_generate(messages, model=None, image_data_uris=None):
+    openai_messages = []
+    for message in messages:
         role = message.get("role", "user")
-        if role == "system":
-            continue
-        gemini_role = "model" if role in {"assistant", "model"} else "user"
-        parts = [{"text": str(message.get("content") or "")}]
-        if index == last_index and role == "user":
-            for data_uri in (image_data_uris or []):
-                try:
-                    header, encoded = data_uri.split(",", 1)
-                    mime_type = header.split(":", 1)[1].split(";", 1)[0]
-                    parts.append({"inline_data": {"mime_type": mime_type, "data": encoded}})
-                except (ValueError, IndexError):
-                    continue
-        contents.append({"role": gemini_role, "parts": parts})
+        if role not in {"system", "user", "assistant"}:
+            role = "user"
+        content = str(message.get("content") or "")
+        if role == "user" and image_data_uris:
+            parts = [{"type": "text", "text": content}]
+            for data_uri in image_data_uris:
+                if isinstance(data_uri, str) and data_uri.startswith("data:image/"):
+                    parts.append({"type": "image_url", "image_url": {"url": data_uri}})
+            content = parts
+        openai_messages.append({"role": role, "content": content})
 
-    system_text = next(
-        (str(item.get("content") or "") for item in messages if item.get("role") == "system"),
-        ""
-    )
     payload = {
-        "contents": contents,
-        "systemInstruction": {"parts": [{"text": system_text}]},
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 8192}
+        "model": G4F_GEMINI_MODEL,
+        "messages": openai_messages,
+        "temperature": 0.7,
+        "max_tokens": 8192
     }
-    endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + urllib.parse.quote(model, safe="") + ":generateContent"
+    endpoint = G4F_GEMINI_BASE_URL.rstrip("/") + "/chat/completions"
     req = urllib_request.Request(
         endpoint,
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
-            "x-goog-api-key": GEMINI_API_KEY,
+            "Accept": "application/json",
             "User-Agent": "DaliAI/1.0"
         },
         method="POST"
@@ -200,19 +192,20 @@ def _gemini_generate(messages, model, image_data_uris=None):
         with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
             result = json.loads(response.read().decode("utf-8"))
     except urllib_error.HTTPError as error:
-        detail = error.read(1200).decode("utf-8", errors="replace")
-        raise RuntimeError("Gemini API returned HTTP " + str(error.code) + ": " + detail) from error
+        detail = error.read(1000).decode("utf-8", errors="replace")
+        raise RuntimeError("G4F Gemini provider returned HTTP " + str(error.code) + ": " + detail) from error
     except TimeoutError as error:
-        raise TimeoutError("Gemini API timed out.") from error
+        raise TimeoutError("G4F Gemini provider timed out.") from error
 
-    candidates = result.get("candidates") or []
-    if not candidates:
-        raise RuntimeError("Gemini returned no response candidates.")
-    parts = (candidates[0].get("content") or {}).get("parts") or []
-    answer = "\n".join(str(part.get("text") or "") for part in parts if part.get("text"))
-    if not answer.strip():
-        raise RuntimeError("Gemini returned an empty response.")
-    return answer.strip()
+    choices = result.get("choices") or []
+    if not choices:
+        raise RuntimeError("G4F Gemini provider returned no choices.")
+    answer = (choices[0].get("message") or {}).get("content") or ""
+    if isinstance(answer, list):
+        answer = "\\n".join(str(part.get("text") or "") for part in answer if isinstance(part, dict))
+    if not str(answer).strip():
+        raise RuntimeError("G4F Gemini provider returned an empty response.")
+    return str(answer).strip()
 
 
 # =========================================================
@@ -1003,7 +996,7 @@ def health():
     return jsonify({
         "status": "Dali AI backend is running",
         "version": BACKEND_VERSION,
-        "g4f": True,
+        "provider": "G4F hosted Gemini Flash",
         "voice_configured": bool(XTTS_HF_SPACE or XTTS_SERVER_URL)
     })
 
@@ -1087,11 +1080,6 @@ def chat():
         # frontend "pro" selection so older clients keep working normally.
         requested_model_tier = "normal"
         selected_model = "gemini-3.8-flash"
-
-        if not GEMINI_API_KEY:
-            return jsonify({
-                "error": "Gemini is selected, but GEMINI_API_KEY is missing. Create a key in Google AI Studio and add it in Vercel → Project Settings → Environment Variables, then redeploy."
-            }), 503
 
         if not isinstance(text, str):
             return jsonify({"error": "Invalid message."}), 400
@@ -1669,7 +1657,7 @@ def _generate_instagram_caption(day=None):
         answer = _gemini_generate([
             {"role": "system", "content": "You write social captions for Dali AI. Never claim an unverified feature or result."},
             {"role": "user", "content": prompt}
-        ], "gemini-3.8-flash")
+        ], G4F_GEMINI_MODEL)
         answer = clean_ai_response(answer)[:2200].strip()
         if answer:
             return answer
