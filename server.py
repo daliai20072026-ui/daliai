@@ -155,7 +155,7 @@ limiter = Limiter(
 # G4F hosted Gemini can be slower during cold starts; stay within the
 # serverless request budget while allowing a little more time.
 GEMINI_TIMEOUT_SECONDS = 50
-G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini-v1beta"
+G4F_GEMINI_BASE_URL = "https://g4f.space/api/gemini"
 G4F_GEMINI_MODEL = "gemini-2.5-flash"
 
 def _gemini_generate(messages, model=None, image_data_uris=None):
