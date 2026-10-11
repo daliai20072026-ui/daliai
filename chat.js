@@ -1150,6 +1150,12 @@ function removeSelectedImage() {
     if (imagePreview) {
         imagePreview.style.display = "none";
 
+        const attachmentGallery = imagePreview.querySelector(".attachment-gallery");
+        if (attachmentGallery) {
+            attachmentGallery.replaceChildren();
+            attachmentGallery.style.display = "none";
+        }
+
         const previewStatus = imagePreview.querySelector(".image-preview-status");
         if (previewStatus) {
             previewStatus.textContent = "";
