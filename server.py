@@ -1026,76 +1026,68 @@ def chat():
                 "error": f"Message is too long. Maximum is {MAX_MESSAGE_LENGTH} characters."
             }), 400
 
-        # Processing image or readable document
-        image_file = request.files.get("image")
-        uploaded_file = request.files.get("file")
-
-        if image_file and uploaded_file:
-            return jsonify({
-                "error": "Please attach one file at a time."
-            }), 400
+        # Process a batch of images and/or readable documents in one request.
+        image_files = [
+            item for item in (request.files.getlist("images") + request.files.getlist("image"))
+            if item and item.filename
+        ]
+        uploaded_files = [
+            item for item in (request.files.getlist("files") + request.files.getlist("file"))
+            if item and item.filename
+        ]
+        if len(image_files) + len(uploaded_files) > 10:
+            return jsonify({"error": "Please attach no more than 10 files at once."}), 400
 
         image_bytes = None
         image_data_uri = None
+        image_data_uris = []
+        image_filenames = []
+        extracted_parts = []
         extracted_file_text = None
-        uploaded_filename = ""
+        uploaded_names = []
 
-        if image_file and image_file.filename:
+        for image_file in image_files:
             declared_mimetype = (image_file.mimetype or "").lower()
-            image_bytes = image_file.read()
+            current_image_bytes = image_file.read()
+            if len(current_image_bytes) > MAX_IMAGE_SIZE:
+                return jsonify({"error": f"Image {sanitize_filename(image_file.filename)} is too large. Maximum size is 50 MB."}), 400
+            if not current_image_bytes:
+                return jsonify({"error": f"Image {sanitize_filename(image_file.filename)} is empty."}), 400
 
-            if len(image_bytes) > MAX_IMAGE_SIZE:
-                return jsonify({
-                    "error": "Image is too large. Maximum size is 50 MB."
-                }), 400
-
-            if not image_bytes:
-                return jsonify({"error": "The selected image is empty."}), 400
-
-            detected_mimetype = detect_image_type(image_bytes)
+            detected_mimetype = detect_image_type(current_image_bytes)
             if detected_mimetype not in ALLOWED_IMAGE_TYPES:
-                return jsonify({
-                    "error": "Unsupported or invalid image. Use JPG, PNG, WEBP or GIF."
-                }), 400
-
-            # Browsers can send an empty or non-standard MIME type for valid images.
-            # Trust the file signature first, while still rejecting a declared type
-            # that explicitly conflicts with the detected bytes.
+                return jsonify({"error": f"Unsupported image: {sanitize_filename(image_file.filename)}. Use JPG, PNG, WEBP or GIF."}), 400
             if declared_mimetype and declared_mimetype != detected_mimetype:
-                return jsonify({
-                    "error": "The image file content does not match its declared type."
-                }), 400
+                return jsonify({"error": f"Image type mismatch: {sanitize_filename(image_file.filename)}."}), 400
 
-            image_mimetype = detected_mimetype
-            uploaded_filename = sanitize_filename(image_file.filename)
-            base64_encoded = base64.b64encode(image_bytes).decode("utf-8")
-            image_data_uri = f"data:{image_mimetype};base64,{base64_encoded}"
+            filename = sanitize_filename(image_file.filename)
+            if image_bytes is None:
+                image_bytes = current_image_bytes
+            encoded = base64.b64encode(current_image_bytes).decode("utf-8")
+            image_data_uris.append(f"data:{detected_mimetype};base64,{encoded}")
+            image_filenames.append(filename)
+            uploaded_names.append(filename)
 
-        elif uploaded_file and uploaded_file.filename:
-            uploaded_filename = sanitize_filename(uploaded_file.filename)
+        image_data_uri = image_data_uris[0] if image_data_uris else None
+
+        for uploaded_file in uploaded_files:
+            filename = sanitize_filename(uploaded_file.filename)
             file_mimetype = (uploaded_file.mimetype or "").lower()
             file_bytes = uploaded_file.read()
-
             if len(file_bytes) > MAX_FILE_SIZE:
-                return jsonify({
-                    "error": "File is too large. Maximum size is 50 MB."
-                }), 400
-
+                return jsonify({"error": f"File {filename} is too large. Maximum size is 50 MB."}), 400
             if not file_bytes:
-                return jsonify({"error": "The selected file is empty."}), 400
-
+                return jsonify({"error": f"The selected file {filename} is empty."}), 400
             try:
-                _, extracted_file_text = extract_readable_file(
-                    file_bytes,
-                    uploaded_filename,
-                    file_mimetype
-                )
+                _, file_text = extract_readable_file(file_bytes, filename, file_mimetype)
             except Exception:
                 app.logger.error("File extraction failed (file content intentionally not logged).")
-                return jsonify({
-                    "error": "Dali AI could not read this file. "
-                             "Check the file format, size, or readability."
-                }), 400
+                return jsonify({"error": f"Dali AI could not read {filename}. Check its format, size, or readability."}), 400
+            extracted_parts.append(f"[File: {filename}]\n{file_text}")
+            uploaded_names.append(filename)
+
+        if extracted_parts:
+            extracted_file_text = "\n\n".join(extracted_parts)
 
         if not text and not image_bytes and not extracted_file_text:
             return jsonify({"error": "Message cannot be empty."}), 400
@@ -1127,7 +1119,7 @@ def chat():
             previous_user_text if followup and previous_user_text else ai_text,
             has_image=bool(image_bytes),
             has_file=bool(extracted_file_text),
-            file_name=uploaded_filename,
+            file_name=", ".join(uploaded_names),
             is_followup=followup,
             previous_topic=previous_user_text
         )
@@ -1179,7 +1171,7 @@ def chat():
             # Passing only [image_data] causes:
             # "not enough values to unpack (expected 2, got 1)".
             image_filename = image_file.filename or "uploaded-image"
-            kwargs["images"] = [[image_data_uri, image_filename]]
+            kwargs["images"] = [[uri, name] for uri, name in zip(image_data_uris, image_filenames)]
 
         try:
             response = client.chat.completions.create(**kwargs)
